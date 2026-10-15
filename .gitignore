@@ -1,0 +1,19 @@
+# Credenciales: NUNCA subir
+auth.json
+raw_headers.txt
+headers.txt
+oauth.json
+
+# Datos generados
+data/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.eggs/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.idea/
+.vscode/

@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ytmsplitter"
+version = "1.0.0"
+description = "Divide tu playlist «Me gusta» de YouTube Music en playlists por estilo, con chips nativos o con IA."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "David Sánchez Míguez", email = "dasamiarea@gmail.com" }]
+keywords = ["youtube-music", "playlists", "music", "classification", "llm", "ytmusicapi"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Multimedia :: Sound/Audio",
+]
+dependencies = [
+  "ytmusicapi>=1.12.3",
+  "requests>=2.31",
+]
+
+[project.optional-dependencies]
+firefox = ["browser_cookie3>=0.19"]
+dev = ["pytest>=7"]
+
+[project.urls]
+Homepage = "https://github.com/figurophobia/YTMSplitter"
+Issues = "https://github.com/figurophobia/YTMSplitter/issues"
+
+[project.scripts]
+ytmsplitter = "ytmsplitter.cli:main"
+
+[tool.setuptools]
+packages = ["ytmsplitter"]
