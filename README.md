@@ -152,6 +152,34 @@ guardan con permisos `600`. **No los compartas.**
 
 ---
 
+## 🧪 Ejemplo de salida
+
+```console
+$ ytmsplitter ai --create
+• Clasificando con IA (gpt-4o-mini en https://api.openai.com/v1)…
+  lote 1/10 (80 canciones)
+  …
+✓ etiquetadas 800/800
+
+• 9 playlists, 800 asignaciones sobre 800 canciones
+   168  Chillhop & Lo-fi
+   141  Indie & Alternativo
+   120  Rock & Metal
+    86  Pop, Soul & Jazz
+    71  Videojuegos
+    54  Rap & Hip-hop
+    48  Electrónica, ambiente y memes
+    45  En español
+    43  Cine, series y anime
+
+• Playlists (creando)
+  ✓ IA · Videojuegos: 71 canciones → PLxxxxxxxxxxxx
+  ✓ IA · Cine, series y anime: 43 canciones → PLxxxxxxxxxxxx
+  …
+```
+
+---
+
 ## 📁 Salida
 
 ```text
