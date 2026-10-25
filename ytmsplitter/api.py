@@ -193,6 +193,21 @@ def create_playlist(yt: YTMusic, title: str, video_ids: list[str],
     return pid
 
 
+def get_playlist_video_ids(yt: YTMusic, playlist_id: str) -> list[str]:
+    """videoIds que ya están dentro de una playlist."""
+    pl = yt.get_playlist(playlist_id, limit=None)
+    return [t["videoId"] for t in pl.get("tracks", []) if t.get("videoId")]
+
+
+def add_missing(yt: YTMusic, playlist_id: str, video_ids: list[str]) -> int:
+    """Añade solo las canciones que falten. Devuelve cuántas ha añadido."""
+    current = set(get_playlist_video_ids(yt, playlist_id))
+    to_add = [v for v in video_ids if v not in current]
+    for i in range(0, len(to_add), C.BATCH_ADD):
+        yt.add_playlist_items(playlist_id, to_add[i:i + C.BATCH_ADD])
+    return len(to_add)
+
+
 def delete_playlists_with_prefix(yt: YTMusic, prefix: str) -> list[str]:
     removed = []
     for p in list_playlists(yt):

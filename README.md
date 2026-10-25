@@ -93,6 +93,7 @@ Banderas útiles de `chips` y `ai`:
 
 ```text
 --create              crea las playlists (por defecto solo informa)
+--update              (ai) añade a las playlists ya creadas solo lo que falte
 --dry-run             muestra qué haría, sin tocar tu cuenta
 --privacy             PRIVATE (defecto) | UNLISTED | PUBLIC
 --uncovered           (chips) añade una playlist con las canciones sin clasificar
@@ -101,6 +102,16 @@ Banderas útiles de `chips` y `ai`:
 
 Todo es **idempotente**: se guarda qué playlist se creó y no se duplica al
 re-ejecutar.
+
+### Añadir canciones nuevas sin duplicar nada
+
+```bash
+ytmsplitter export          # vuelve a bajar «Me gusta» (tus 932 de ahora)
+ytmsplitter ai --update     # clasifica solo las nuevas y las añade donde toca
+```
+
+`--update` compara cada playlist con su grupo ideal y añade **solo** las que
+faltan; nunca recrea ni vacía nada.
 
 ---
 

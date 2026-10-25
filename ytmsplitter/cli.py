@@ -175,6 +175,10 @@ def cmd_ai(args) -> int:
         api.save_json(C.LABELS_FILE, labels)
         print(f"{OK} etiquetadas {len(labels)}/{len(liked)}")
 
+    # solo canciones que siguen en «Me gusta» (puede haber etiquetas huérfanas)
+    liked_ids = {t["videoId"] for t in liked}
+    labels = {k: v for k, v in labels.items() if k in liked_ids}
+
     buckets = ai.build_buckets(labels)
     api.save_json(C.BUCKETS_FILE, buckets)
     total = sum(len(v) for v in buckets.values())
@@ -182,22 +186,44 @@ def cmd_ai(args) -> int:
     for name, vids in buckets.items():
         print(f"  {len(vids):4d}  {name}")
 
-    if not args.create:
-        print(f"\n{ARROW} añade --create para crear las playlists")
+    created = api.load_json(C.CREATED_AI_FILE, {})
+    yt = api.client()
+
+    if args.create:
+        if not args.dry_run:
+            api.require_auth(yt)
+        if args.delete_old_chips and not args.dry_run:
+            for title in api.delete_playlists_with_prefix(yt, C.CHIPS_PREFIX):
+                print(f"  {DOT} borrada {title}")
+        for name, vids in buckets.items():
+            _create_or_skip(args, created, name, C.AI_PREFIX + name, vids, args.dry_run,
+                            args.privacy, C.CREATED_AI_FILE)
+
+    if args.update:
+        if not args.dry_run:
+            api.require_auth(yt)
+        print(f"\n{DOT} Actualizando playlists existentes "
+              f"({'simulación' if args.dry_run else 'añadiendo lo que falta'})")
+        for name, vids in buckets.items():
+            pid = created.get(name)
+            if not pid:
+                print(f"  {DOT} {name}: aún no existe (usa --create)")
+                continue
+            if args.dry_run:
+                current = set(api.get_playlist_video_ids(yt, pid))
+                new = [v for v in vids if v not in current]
+                print(f"  {DOT} {name}: {len(new)} por añadir de {len(vids)}")
+            else:
+                n = api.add_missing(yt, pid, vids)
+                print(f"  {OK} {name}: +{n} canciones ({len(vids)} en total)"
+                      if n else f"  {OK} {name}: ya estaba al día")
+
+    if not args.create and not args.update:
+        print(f"\n{ARROW} añade --create (crear) o --update (actualizar) para tocar tu cuenta")
         return 0
 
-    print(f"\n{DOT} Playlists ({'simulación' if args.dry_run else 'creando'})")
-    created = api.load_json(C.CREATED_AI_FILE, {})
-
-    if args.delete_old_chips and not args.dry_run:
-        for title in api.delete_playlists_with_prefix(api.client(), C.CHIPS_PREFIX):
-            print(f"  {DOT} borrada {title}")
-
-    for name, vids in buckets.items():
-        _create_or_skip(args, created, name, C.AI_PREFIX + name, vids, args.dry_run,
-                        args.privacy, C.CREATED_AI_FILE)
     if args.dry_run:
-        print(f"{ARROW} vuelve a ejecutar sin --dry-run para crear de verdad")
+        print(f"{ARROW} vuelve a ejecutar sin --dry-run para aplicar los cambios")
     return 0
 
 
@@ -242,6 +268,8 @@ def build_parser() -> argparse.ArgumentParser:
     add_create_flags(i, with_delete=True)
     i.add_argument("--model", help="modelo (por defecto AI_MODEL)")
     i.add_argument("--base-url", help="endpoint compatible con OpenAI (por defecto AI_BASE_URL)")
+    i.add_argument("--update", action="store_true",
+                   help="añade a las playlists existentes las canciones nuevas")
     i.add_argument("--api-key", help="clave de API (por defecto AI_API_KEY)")
     i.set_defaults(func=cmd_ai)
 
