@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- Replaced the README banner with the plain pizza-sliced logo.
+- Simplified the social preview to the same logo on a dark background.
+
 ## [1.2.0] - 2026-10-26
 
 ### Added

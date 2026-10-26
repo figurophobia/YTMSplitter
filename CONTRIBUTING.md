@@ -35,7 +35,7 @@ ytmsplitter/
   config.py    paths, tags, buckets and playlist names
 tests/         network-free unit tests
 prompts/       copy of the classification prompt
-assets/        logo, banner and social preview
+assets/        logo and social preview
 ```
 
 ## Guidelines

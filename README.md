@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/banner.svg" alt="YTMSplitter — slice your YouTube Music likes into playlists that actually make sense" width="100%">
+<img src="assets/logo.svg" alt="YTMSplitter logo: the YouTube Music play button cut into pizza slices" width="200">
 
 # YTMSplitter
 

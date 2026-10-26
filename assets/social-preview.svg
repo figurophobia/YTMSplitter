@@ -1,91 +1,66 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" role="img" aria-labelledby="bannerTitle">
-  <title id="bannerTitle">YTMSplitter — slice your YouTube Music likes into playlists</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" role="img" aria-labelledby="spTitle spDesc">
+  <title id="spTitle">YTMSplitter</title>
+  <desc id="spDesc">The YouTube Music play button cut into pizza slices.</desc>
   <defs>
-    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(230 320) scale(470 470)" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FF1A1A" stop-opacity=".32"/>
-      <stop offset=".55" stop-color="#FF1A1A" stop-opacity=".09"/>
-      <stop offset="1" stop-color="#FF1A1A" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="mark-red" x1="140" y1="90" x2="380" y2="430" gradientUnits="userSpaceOnUse">
+    <linearGradient id="sp-red" x1="140" y1="90" x2="380" y2="430" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#FF3B30"/>
       <stop offset=".55" stop-color="#FF0A0A"/>
       <stop offset="1" stop-color="#D80000"/>
     </linearGradient>
-    <linearGradient id="mark-crust" x1="120" y1="60" x2="400" y2="450" gradientUnits="userSpaceOnUse">
+    <linearGradient id="sp-crust" x1="120" y1="60" x2="400" y2="450" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#FFD982"/>
       <stop offset=".5" stop-color="#F2B544"/>
       <stop offset="1" stop-color="#DB9427"/>
     </linearGradient>
-    <filter id="mark-shadow" x="-40%" y="-40%" width="180%" height="180%">
+    <filter id="sp-shadow" x="-40%" y="-40%" width="180%" height="180%">
       <feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#000000" flood-opacity=".38"/>
     </filter>
-    <clipPath id="mark0"><path d="M 256.00 256.00 L 262.25 32.09 A 224.00 224.00 0 0 1 446.79 138.63 Z"/></clipPath>
-    <clipPath id="mark1"><path d="M 256.00 256.00 L 453.04 149.46 A 224.00 224.00 0 0 1 453.04 362.54 Z"/></clipPath>
-    <clipPath id="mark2"><path d="M 256.00 256.00 L 446.79 373.37 A 224.00 224.00 0 0 1 262.25 479.91 Z"/></clipPath>
-    <clipPath id="mark3"><path d="M 256.00 256.00 L 249.75 479.91 A 224.00 224.00 0 0 1 65.21 373.37 Z"/></clipPath>
-    <clipPath id="mark4"><path d="M 256.00 256.00 L 58.96 362.54 A 224.00 224.00 0 0 1 58.96 149.46 Z"/></clipPath>
-    <clipPath id="mark5"><path d="M 256.00 256.00 L 65.21 138.63 A 224.00 224.00 0 0 1 249.75 32.09 Z"/></clipPath>
+    <clipPath id="sp0"><path d="M 256.00 256.00 L 262.25 32.09 A 224.00 224.00 0 0 1 446.79 138.63 Z"/></clipPath>
+    <clipPath id="sp1"><path d="M 256.00 256.00 L 453.04 149.46 A 224.00 224.00 0 0 1 453.04 362.54 Z"/></clipPath>
+    <clipPath id="sp2"><path d="M 256.00 256.00 L 446.79 373.37 A 224.00 224.00 0 0 1 262.25 479.91 Z"/></clipPath>
+    <clipPath id="sp3"><path d="M 256.00 256.00 L 249.75 479.91 A 224.00 224.00 0 0 1 65.21 373.37 Z"/></clipPath>
+    <clipPath id="sp4"><path d="M 256.00 256.00 L 58.96 362.54 A 224.00 224.00 0 0 1 58.96 149.46 Z"/></clipPath>
+    <clipPath id="sp5"><path d="M 256.00 256.00 L 65.21 138.63 A 224.00 224.00 0 0 1 249.75 32.09 Z"/></clipPath>
   </defs>
   <rect width="1280" height="640" fill="#0B0B0F"/>
-  <rect width="1280" height="640" fill="url(#glow)"/>
-  <rect x="0" y="0" width="1280" height="1" fill="#ffffff" fill-opacity=".05"/>
-  <rect x="0" y="639" width="1280" height="1" fill="#ffffff" fill-opacity=".05"/>
-  <g transform="translate(92 150) scale(0.7)">
-      <g>
-        <g clip-path="url(#mark0)">
-          <circle cx="256.0" cy="256.0" r="224.0" fill="url(#mark-crust)"/>
-          <circle cx="256.0" cy="256.0" r="202.0" fill="url(#mark-red)"/>
-          <circle cx="256.0" cy="256.0" r="202.0" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
-          <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
-        </g>
+  <g transform="translate(384 64)">
+    <g clip-path="url(#sp0)">
+      <circle cx="256" cy="256" r="224" fill="url(#sp-crust)"/>
+      <circle cx="256" cy="256" r="202" fill="url(#sp-red)"/>
+      <circle cx="256" cy="256" r="202" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
+      <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
+    </g>
+    <g clip-path="url(#sp1)">
+      <circle cx="256" cy="256" r="224" fill="url(#sp-crust)"/>
+      <circle cx="256" cy="256" r="202" fill="url(#sp-red)"/>
+      <circle cx="256" cy="256" r="202" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
+      <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(13 22.52)" filter="url(#sp-shadow)">
+      <g clip-path="url(#sp2)">
+        <circle cx="256" cy="256" r="224" fill="url(#sp-crust)"/>
+        <circle cx="256" cy="256" r="202" fill="url(#sp-red)"/>
+        <circle cx="256" cy="256" r="202" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
+        <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
       </g>
-      <g>
-        <g clip-path="url(#mark1)">
-          <circle cx="256.0" cy="256.0" r="224.0" fill="url(#mark-crust)"/>
-          <circle cx="256.0" cy="256.0" r="202.0" fill="url(#mark-red)"/>
-          <circle cx="256.0" cy="256.0" r="202.0" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
-          <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
-        </g>
-      </g>
-      <g transform="translate(13.00 22.52)" filter="url(#mark-shadow)">
-        <g clip-path="url(#mark2)">
-          <circle cx="256.0" cy="256.0" r="224.0" fill="url(#mark-crust)"/>
-          <circle cx="256.0" cy="256.0" r="202.0" fill="url(#mark-red)"/>
-          <circle cx="256.0" cy="256.0" r="202.0" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
-          <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
-        </g>
-      </g>
-      <g>
-        <g clip-path="url(#mark3)">
-          <circle cx="256.0" cy="256.0" r="224.0" fill="url(#mark-crust)"/>
-          <circle cx="256.0" cy="256.0" r="202.0" fill="url(#mark-red)"/>
-          <circle cx="256.0" cy="256.0" r="202.0" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
-          <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
-        </g>
-      </g>
-      <g>
-        <g clip-path="url(#mark4)">
-          <circle cx="256.0" cy="256.0" r="224.0" fill="url(#mark-crust)"/>
-          <circle cx="256.0" cy="256.0" r="202.0" fill="url(#mark-red)"/>
-          <circle cx="256.0" cy="256.0" r="202.0" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
-          <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
-        </g>
-      </g>
-      <g>
-        <g clip-path="url(#mark5)">
-          <circle cx="256.0" cy="256.0" r="224.0" fill="url(#mark-crust)"/>
-          <circle cx="256.0" cy="256.0" r="202.0" fill="url(#mark-red)"/>
-          <circle cx="256.0" cy="256.0" r="202.0" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
-          <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
-        </g>
-      </g>
+    </g>
+    <g clip-path="url(#sp3)">
+      <circle cx="256" cy="256" r="224" fill="url(#sp-crust)"/>
+      <circle cx="256" cy="256" r="202" fill="url(#sp-red)"/>
+      <circle cx="256" cy="256" r="202" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
+      <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
+    </g>
+    <g clip-path="url(#sp4)">
+      <circle cx="256" cy="256" r="224" fill="url(#sp-crust)"/>
+      <circle cx="256" cy="256" r="202" fill="url(#sp-red)"/>
+      <circle cx="256" cy="256" r="202" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
+      <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
+    </g>
+    <g clip-path="url(#sp5)">
+      <circle cx="256" cy="256" r="224" fill="url(#sp-crust)"/>
+      <circle cx="256" cy="256" r="202" fill="url(#sp-red)"/>
+      <circle cx="256" cy="256" r="202" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
+      <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
+    </g>
   </g>
-  <g font-family="Arial, Helvetica, sans-serif">
-    <text x="470" y="230" fill="#F2B544" font-size="17" font-weight="700" letter-spacing="4.2">PYTHON CLI · OPEN SOURCE</text>
-    <text x="470" y="316" fill="#FFFFFF" font-size="96" font-weight="700" letter-spacing="-2.5">YTMSplitter</text>
-    <text x="470" y="370" fill="#C7C7D1" font-size="31" font-weight="400">Slice your YouTube Music likes into</text>
-    <text x="470" y="410" fill="#C7C7D1" font-size="31" font-weight="400">playlists that actually make sense.</text>
-    <rect x="470" y="448" width="86" height="4" rx="2" fill="#F2B544"/>
-  </g>
-  <text x="1224" y="606" text-anchor="end" fill="#777782" font-size="16" font-family="Arial, Helvetica, sans-serif">github.com/figurophobia/YTMSplitter</text>
 </svg>
