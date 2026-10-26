@@ -390,13 +390,18 @@ def cmd_quickstart(args) -> int:
         print(f"{OK} session ready")
     else:
         browser = args.browser or C.DEFAULT_BROWSER
-        print(f"{DOT} reading YouTube cookies from {browser}…")
+        print(
+            f"{DOT} reading YouTube cookies from {browser}… "
+            "(use --browser chrome, brave or edge if needed)"
+        )
         path = auth.setup_from_browser(browser)
         if not api.is_authenticated(api.client(path)):
             print(
                 f"{BAD} the cookies did not authenticate.\n"
                 f"  Sign in at music.youtube.com in {browser}, then try again:\n"
                 "    ytmsplitter quickstart\n"
+                "  Using another browser?\n"
+                "    ytmsplitter quickstart --browser chrome\n"
                 "  Or paste request headers with `ytmsplitter auth --headers FILE`."
             )
             return 1

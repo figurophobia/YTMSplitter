@@ -69,7 +69,8 @@ def read_browser_cookies(browser: str = C.DEFAULT_BROWSER) -> dict[str, str]:
             f"No YouTube cookies found in {browser}.\n"
             f"Make sure you are signed in at music.youtube.com in {browser}.\n"
             "Chrome, Chromium, Brave and Edge must be fully closed while reading "
-            "their cookie database. Alternatively, use --headers."
+            "their cookie database.\n"
+            "Try another browser with --browser NAME, or use --headers."
         )
     return cookies
 
