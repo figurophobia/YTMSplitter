@@ -1,23 +1,39 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ytmsplitter"
-version = "1.0.0"
-description = "Divide tu playlist «Me gusta» de YouTube Music en playlists por estilo, con chips nativos o con IA."
+version = "1.1.0"
+description = "Split your YouTube Music Liked Music playlist into playlists by style, with native chips or an LLM."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "David Sánchez Míguez", email = "dasamiarea@gmail.com" }]
-keywords = ["youtube-music", "playlists", "music", "classification", "llm", "ytmusicapi"]
+keywords = [
+  "youtube-music",
+  "playlists",
+  "playlist-splitter",
+  "music-classification",
+  "music-library",
+  "llm",
+  "ytmusicapi",
+  "cli",
+]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Environment :: Console",
   "Intended Audience :: End Users/Desktop",
-  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Multimedia :: Sound/Audio",
+  "Typing :: Typed",
 ]
 dependencies = [
   "ytmusicapi>=1.12.3",
@@ -25,15 +41,36 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+browsers = ["browser_cookie3>=0.19"]
 firefox = ["browser_cookie3>=0.19"]
-dev = ["pytest>=7"]
+dev = [
+  "pytest>=7",
+  "ruff>=0.6",
+]
 
 [project.urls]
 Homepage = "https://github.com/figurophobia/YTMSplitter"
+Repository = "https://github.com/figurophobia/YTMSplitter"
 Issues = "https://github.com/figurophobia/YTMSplitter/issues"
+Changelog = "https://github.com/figurophobia/YTMSplitter/blob/main/CHANGELOG.md"
 
 [project.scripts]
 ytmsplitter = "ytmsplitter.cli:main"
 
 [tool.setuptools]
 packages = ["ytmsplitter"]
+
+[tool.setuptools.package-data]
+ytmsplitter = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["E501"]

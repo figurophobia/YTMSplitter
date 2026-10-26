@@ -1,13 +1,13 @@
-"""YTMSplitter: divide tu playlist "Me gusta" de YouTube Music en playlists por estilo.
+"""YTMSplitter — split your YouTube Music Liked Music into style playlists.
 
-Dos motores de clasificación:
+Two classification engines:
 
-* **chips** — usa los *chips* (mood/género) que YouTube Music ya calcula sobre tu
-  propia lista. Rápido y sin dependencias externas.
-* **ia** — un LLM etiqueta cada canción con un estilo fino y luego se agrupan las
-  etiquetas en unas pocas playlists. Requiere una API compatible con OpenAI.
+* **chips** — uses the mood/genre chips YouTube Music already computes for your
+  own library. Fast, no API key and no external service.
+* **ai** — an LLM labels every song with a fine-grained style, then those labels
+  are grouped into a handful of playlists. Works with any OpenAI-compatible API.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 __all__ = ["__version__"]

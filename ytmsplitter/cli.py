@@ -1,290 +1,648 @@
-"""Interfaz de línea de comandos de YTMSplitter."""
+"""Command-line interface for YTMSplitter."""
 
 from __future__ import annotations
 
 import argparse
+import platform
 import sys
 from pathlib import Path
 
+from . import __version__, ai, api, auth
 from . import config as C
-from . import api, auth, ai
 
 OK, BAD, ARROW, DOT = "✓", "✗", "→", "•"
+PRIVACY_CHOICES = ("PRIVATE", "UNLISTED", "PUBLIC")
 
 
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
+def _relative(path: Path) -> str:
+    try:
+        return str(path.relative_to(Path.cwd()))
+    except ValueError:
+        return str(path)
+
+
+def _songs(count: int) -> str:
+    return f"{count} song" if count == 1 else f"{count} songs"
+
+
 def _load_liked(auto_export: bool = True) -> list[dict]:
     liked = api.load_json(C.LIKED_FILE)
     if liked:
         return liked
     if not auto_export:
-        raise SystemExit(f"Falta {C.LIKED_FILE}. Ejecuta antes: ytmsplitter export")
-    print(f"{DOT} No hay {C.LIKED_FILE.relative_to(Path.cwd()) if C.LIKED_FILE.is_relative_to(Path.cwd()) else C.LIKED_FILE}, descargando…")
+        raise SystemExit(f"Missing {C.LIKED_FILE}. Run `ytmsplitter export` first.")
+    print(f"{DOT} No cached library found, downloading it now…")
     return cmd_export(argparse.Namespace())
 
 
-def _privacy(value: str) -> str:
-    return value.upper()
+def _load_created(path: Path, legacy_keys: dict[str, str] | None = None) -> dict:
+    """Load the created-playlists map and migrate legacy bucket names in place."""
+    created = api.load_json(path, {}) or {}
+    if not legacy_keys:
+        return created
+    migrated = {legacy_keys.get(key, key): value for key, value in created.items()}
+    if migrated != created:
+        api.save_json(path, migrated)
+    return migrated
 
 
-def _create_or_skip(args, created: dict, key: str, title: str,
-                    video_ids: list[str], dry_run: bool, privacy: str,
-                    created_file: Path) -> None:
+def _create_playlist_once(
+    yt,
+    created: dict,
+    key: str,
+    title: str,
+    video_ids: list[str],
+    dry_run: bool,
+    privacy: str,
+    created_file: Path,
+) -> None:
+    """Create a playlist unless it already exists; never duplicate it."""
     if not video_ids:
-        print(f"  {DOT} {title}: sin canciones, se omite")
+        print(f"  {DOT} {title}: no songs, skipped")
         return
     if dry_run:
-        state = "ya creada" if key in created else "nueva"
-        print(f"  {DOT} {title}: {len(video_ids)} canciones ({state})")
+        state = "already created" if key in created else "new"
+        print(f"  {DOT} {title}: {_songs(len(video_ids))} ({state})")
         return
     if key in created:
-        print(f"  {OK} {title}: ya existe, se omite")
+        print(f"  {OK} {title}: already exists, skipped")
         return
-    yt = api.client()
-    pid = api.create_playlist(yt, title, video_ids, privacy=privacy)
-    created[key] = pid
+    playlist_id = api.create_playlist(yt, title, video_ids, privacy=privacy)
+    created[key] = playlist_id
     api.save_json(created_file, created)
-    print(f"  {OK} {title}: {len(video_ids)} canciones → {pid}")
+    print(f"  {OK} {title}: {_songs(len(video_ids))} → {playlist_id}")
+
+
+def _delete_chip_playlists(yt, prefixes: tuple[str, ...], confirmed: bool) -> int:
+    """Delete playlists matching ``prefixes`` once the user has opted in."""
+    targets = [
+        playlist
+        for playlist in api.list_playlists(yt)
+        if any(playlist["title"].startswith(prefix) for prefix in prefixes)
+    ]
+    if not targets:
+        return 0
+    if not confirmed:
+        print(f"{BAD} This would delete {len(targets)} playlist(s). Re-run with --yes to confirm.")
+        return 2
+    for playlist in targets:
+        yt.delete_playlist(playlist["playlistId"])
+        print(f"  {DOT} deleted {playlist['title']}")
+    api.save_json(C.CREATED_CHIPS_FILE, {})
+    return 0
+
+
+def _get_client():
+    yt = api.client()
+    api.require_auth(yt)
+    return yt
 
 
 # --------------------------------------------------------------------------- #
-# Comandos
+# Commands
 # --------------------------------------------------------------------------- #
 def cmd_auth(args) -> int:
     if args.headers:
         raw = Path(args.headers).read_text(encoding="utf-8")
         path = auth.setup_from_headers(raw)
-        print(f"{OK} auth.json generado a partir de {args.headers}")
+        print(f"{OK} auth.json created from {args.headers}")
     else:
-        path = auth.setup_from_firefox()
-        print(f"{OK} auth.json regenerado desde Firefox")
+        browser = args.browser or C.DEFAULT_BROWSER
+        path = auth.setup_from_browser(browser)
+        print(f"{OK} auth.json refreshed from {browser}")
 
-    yt = api.client(path)
-    if api.is_authenticated(yt):
-        print(f"{OK} sesión autenticada")
+    try:
+        yt = api.client(path)
+        authenticated = api.is_authenticated(yt)
+    except Exception as exc:  # noqa: BLE001 - report a friendly message instead
+        print(f"{BAD} could not verify the session: {exc}")
+        return 1
+
+    if authenticated:
+        print(f"{OK} session authenticated")
         return 0
-    print(f"{BAD} la sesión NO autentica (logged_in=0). Prueba a pegar cabeceras frescas.")
+
+    print(
+        f"{BAD} the session is not authenticated (logged_in=0).\n"
+        "  The cookies may have expired. Try again, or paste fresh headers:\n"
+        "    ytmsplitter auth --headers headers.txt"
+    )
     return 1
 
 
 def cmd_doctor(args) -> int:
-    print(f"YTMSplitter {__import__('ytmsplitter').__version__}")
-    print(f"directorio de datos: {C.DATA_DIR}")
+    print(f"YTMSplitter {__version__}")
+    print(f"Python {platform.python_version()} · data directory: {C.DATA_DIR}")
 
-    print(f"\n{DOT} Sesión")
-    print(f"  auth.json: {OK if C.AUTH_FILE.exists() else BAD}")
-    if C.AUTH_FILE.exists():
-        print(f"  autenticada: {OK if api.is_authenticated(api.client()) else BAD}")
+    print(f"\n{DOT} Session")
+    has_auth = C.AUTH_FILE.exists()
+    print(f"  auth.json:          {OK if has_auth else BAD}")
+    authenticated = False
+    if has_auth:
+        try:
+            authenticated = api.is_authenticated(api.client())
+        except Exception:  # noqa: BLE001 - doctor must never crash on bad auth
+            authenticated = False
+        print(f"  authenticated:      {OK if authenticated else BAD}")
 
-    print(f"\n{DOT} Datos")
-    liked = api.load_json(C.LIKED_FILE)
-    labels = api.load_json(C.LABELS_FILE)
-    print(f"  canciones descargadas: {len(liked) if liked else 0}")
-    print(f"  etiquetas IA:          {len(labels) if labels else 0}")
+    liked = api.load_json(C.LIKED_FILE) or []
+    labels = api.load_json(C.LABELS_FILE) or {}
+    liked_ids = {track["videoId"] for track in liked}
+    labels = {key: value for key, value in labels.items() if key in liked_ids}
+    missing = len(liked_ids) - len(labels)
 
-    if C.CREATED_AI_FILE.exists() or C.CREATED_CHIPS_FILE.exists():
-        print(f"\n{DOT} Playlists creadas")
-        for f, label in ((C.CREATED_AI_FILE, "IA"), (C.CREATED_CHIPS_FILE, "chips")):
-            created = api.load_json(f, {})
-            print(f"  {label}: {len(created)}")
+    print(f"\n{DOT} Library")
+    print(f"  liked songs:        {len(liked)}")
+    print(f"  AI labels:          {len(labels)}{f' ({missing} pending)' if missing else ''}")
+
+    chips_created = api.load_json(C.CREATED_CHIPS_FILE, {}) or {}
+    ai_created = _load_created(C.CREATED_AI_FILE, C.LEGACY_AI_BUCKETS)
+    print(f"\n{DOT} Playlists created")
+    print(f"  chips engine:       {len(chips_created)}")
+    print(f"  AI engine:          {len(ai_created)}")
+
+    print(f"\n{DOT} AI configuration")
+    print(f"  base URL:           {C.AI_BASE_URL}")
+    print(f"  model:              {C.AI_MODEL or '(not set)'}")
+    print(f"  API key:            {'set' if C.AI_API_KEY else 'not set'}")
+
+    if not authenticated:
+        print(f"\n{ARROW} Run `ytmsplitter auth` to fix the session.")
+    elif not liked:
+        print(f"\n{ARROW} Run `ytmsplitter export` to download your Liked Music.")
+    elif not chips_created and not ai_created:
+        print(
+            f"\n{ARROW} Run `ytmsplitter chips --create` or "
+            "`ytmsplitter ai --create` to build playlists."
+        )
     return 0
 
 
 def cmd_export(args) -> list[dict]:
-    yt = api.client()
-    api.require_auth(yt)
-    print(f"{DOT} Descargando tu playlist «Me gusta»…")
+    yt = _get_client()
+    print(f"{DOT} Downloading your Liked Music…")
     tracks, total = api.get_liked_tracks(yt)
     api.save_json(C.LIKED_FILE, tracks)
-    print(f"{OK} {len(tracks)} canciones → {C.LIKED_FILE} (YT Music dice {total})")
+    print(f"{OK} {_songs(len(tracks))} → {_relative(C.LIKED_FILE)} (YouTube Music reports {total})")
     return tracks
 
 
 def cmd_chips(args) -> int:
-    yt = api.client()
-    api.require_auth(yt)
+    yt = _get_client()
     liked = _load_liked()
-    liked_ids = [t["videoId"] for t in liked]
+    liked_ids = [track["videoId"] for track in liked]
 
     chips = api.get_chips(yt)
     if not chips:
-        print(f"{BAD} no se han encontrado chips en la página de Me gusta")
+        print(f"{BAD} no chips were found on the Liked Music page")
         return 1
-    print(f"{DOT} {len(chips)} chips encontrados")
-    for c in chips:
-        c["kind"] = ("mood" if c["label"] in C.MOODS
-                     else "genre" if c["label"] in C.GENRES else "otro")
+
+    print(f"{DOT} {len(chips)} chips found")
+    for chip in chips:
+        chip["kind"] = (
+            "mood"
+            if chip["label"] in C.MOODS
+            else "genre"
+            if chip["label"] in C.GENRES
+            else "other"
+        )
     api.save_json(C.CHIPS_FILE, chips)
 
     by_chip: dict[str, list[str]] = {}
-    for i, c in enumerate(chips, 1):
-        items = api.fetch_chip_songs(yt, c["token"])
-        vids = list(dict.fromkeys(it["videoId"] for it in items if it.get("videoId")))
-        by_chip[c["label"]] = vids
-        api.save_json(C.BY_CHIP_DIR / f"{c['label']}.json", vids)
-        print(f"  [{i:2d}/{len(chips)}] {c['label']:26s} {len(vids):4d}")
+    for index, chip in enumerate(chips, 1):
+        items = api.fetch_chip_songs(yt, chip["token"])
+        video_ids = list(dict.fromkeys(item["videoId"] for item in items if item.get("videoId")))
+        by_chip[chip["label"]] = video_ids
+        api.save_json(C.BY_CHIP_DIR / f"{chip['label']}.json", video_ids)
+        print(f"  [{index:2d}/{len(chips)}] {chip['label']:26s} {len(video_ids):4d}")
 
     covered = set().union(*map(set, by_chip.values())) if by_chip else set()
-    uncovered = [v for v in liked_ids if v not in covered]
-    api.save_json(C.SUMMARY_FILE, {
-        "liked_total": len(liked_ids), "covered": len(covered),
-        "uncovered": len(uncovered), "by_chip": {k: len(v) for k, v in by_chip.items()},
-    })
+    uncovered = [video_id for video_id in liked_ids if video_id not in covered]
+    api.save_json(
+        C.SUMMARY_FILE,
+        {
+            "liked_total": len(liked_ids),
+            "covered": len(covered),
+            "uncovered": len(uncovered),
+            "by_chip": {label: len(video_ids) for label, video_ids in by_chip.items()},
+        },
+    )
     api.save_json(C.UNCOVERED_FILE, uncovered)
-    print(f"{OK} cubiertas por algún chip: {len(covered)}/{len(liked_ids)} "
-          f"(sin chip: {len(uncovered)})")
+    print(f"{OK} covered by a chip: {len(covered)}/{len(liked_ids)} (uncovered: {len(uncovered)})")
 
     if not args.create:
-        print(f"{ARROW} añade --create para crear las playlists")
+        print(f"{ARROW} add --create to create the playlists")
         return 0
 
-    print(f"\n{DOT} Playlists ({'simulación' if args.dry_run else 'creando'})")
-    created = api.load_json(C.CREATED_CHIPS_FILE, {})
-    for label, vids in by_chip.items():
+    print(f"\n{DOT} Playlists ({'dry run' if args.dry_run else 'creating'})")
+    created = _load_created(C.CREATED_CHIPS_FILE)
+    for label, video_ids in by_chip.items():
         title = C.CHIPS_PREFIX + C.PLAYLIST_NAMES.get(label, label)
-        _create_or_skip(args, created, label, title, vids, args.dry_run, args.privacy,
-                        C.CREATED_CHIPS_FILE)
+        _create_playlist_once(
+            yt,
+            created,
+            label,
+            title,
+            video_ids,
+            args.dry_run,
+            args.privacy,
+            C.CREATED_CHIPS_FILE,
+        )
     if args.uncovered:
-        title = C.CHIPS_PREFIX + "Sin clasificar"
-        _create_or_skip(args, created, "__uncovered__", title, uncovered, args.dry_run,
-                        args.privacy, C.CREATED_CHIPS_FILE)
+        title = C.CHIPS_PREFIX + "Uncovered"
+        _create_playlist_once(
+            yt,
+            created,
+            "__uncovered__",
+            title,
+            uncovered,
+            args.dry_run,
+            args.privacy,
+            C.CREATED_CHIPS_FILE,
+        )
     if args.dry_run:
-        print(f"{ARROW} vuelve a ejecutar sin --dry-run para crear de verdad")
+        print(f"{ARROW} re-run without --dry-run to apply the changes")
     return 0
 
 
 def cmd_ai(args) -> int:
     liked = _load_liked()
+    labels = api.load_json(C.LABELS_FILE, {}) or {}
+    missing = [track["videoId"] for track in liked if track["videoId"] not in labels]
 
-    labels = api.load_json(C.LABELS_FILE, {})
-    missing = [t["videoId"] for t in liked if t["videoId"] not in labels]
     if missing:
         base_url = args.base_url or C.AI_BASE_URL
         api_key = args.api_key or C.AI_API_KEY
         model = args.model or C.AI_MODEL
         if not api_key or not model:
-            print(f"{BAD} faltan {len(missing)} canciones por etiquetar y no hay clave de IA.")
-            print("  Define AI_API_KEY y AI_MODEL (y opcional AI_BASE_URL), o:")
-            print("    AI_API_KEY=… AI_MODEL=gpt-4o-mini ytmsplitter ai --create")
-            print("  También puedes reutilizar data/ai_labels.json ya existente.")
+            print(
+                f"{BAD} {_songs(len(missing))} still need labels and no AI key is set.\n"
+                "  Set AI_API_KEY and AI_MODEL (and optionally AI_BASE_URL), or:\n"
+                "    AI_API_KEY=… AI_MODEL=gpt-4o-mini ytmsplitter ai --create\n"
+                "  Any OpenAI-compatible endpoint works, including a local one:\n"
+                "    AI_API_KEY=local AI_MODEL=llama3.1 \\\n"
+                "      AI_BASE_URL=http://localhost:11434/v1 ytmsplitter ai --create\n"
+                "  You can also reuse an existing data/ai_labels.json."
+            )
             return 2
-        print(f"{DOT} Clasificando con IA ({model} en {base_url})…")
+        print(f"{DOT} Classifying with AI ({model} at {base_url})…")
         labels.update(ai.classify_all(liked, base_url, api_key, model))
         api.save_json(C.LABELS_FILE, labels)
-        print(f"{OK} etiquetadas {len(labels)}/{len(liked)}")
+        print(f"{OK} labelled {len(labels)}/{len(liked)} songs")
 
-    # solo canciones que siguen en «Me gusta» (puede haber etiquetas huérfanas)
-    liked_ids = {t["videoId"] for t in liked}
-    labels = {k: v for k, v in labels.items() if k in liked_ids}
+    # Ignore labels for songs that are no longer in Liked Music.
+    liked_ids = {track["videoId"] for track in liked}
+    labels = {key: value for key, value in labels.items() if key in liked_ids}
 
     buckets = ai.build_buckets(labels)
     api.save_json(C.BUCKETS_FILE, buckets)
-    total = sum(len(v) for v in buckets.values())
-    print(f"\n{DOT} {len(buckets)} playlists, {total} asignaciones sobre {len(labels)} canciones")
-    for name, vids in buckets.items():
-        print(f"  {len(vids):4d}  {name}")
-
-    created = api.load_json(C.CREATED_AI_FILE, {})
-    yt = api.client()
-
-    if args.create:
-        if not args.dry_run:
-            api.require_auth(yt)
-        if args.delete_old_chips and not args.dry_run:
-            for title in api.delete_playlists_with_prefix(yt, C.CHIPS_PREFIX):
-                print(f"  {DOT} borrada {title}")
-        for name, vids in buckets.items():
-            _create_or_skip(args, created, name, C.AI_PREFIX + name, vids, args.dry_run,
-                            args.privacy, C.CREATED_AI_FILE)
-
-    if args.update:
-        if not args.dry_run:
-            api.require_auth(yt)
-        print(f"\n{DOT} Actualizando playlists existentes "
-              f"({'simulación' if args.dry_run else 'añadiendo lo que falta'})")
-        for name, vids in buckets.items():
-            pid = created.get(name)
-            if not pid:
-                print(f"  {DOT} {name}: aún no existe (usa --create)")
-                continue
-            if args.dry_run:
-                current = set(api.get_playlist_video_ids(yt, pid))
-                new = [v for v in vids if v not in current]
-                print(f"  {DOT} {name}: {len(new)} por añadir de {len(vids)}")
-            else:
-                n = api.add_missing(yt, pid, vids)
-                print(f"  {OK} {name}: +{n} canciones ({len(vids)} en total)"
-                      if n else f"  {OK} {name}: ya estaba al día")
+    total = sum(len(video_ids) for video_ids in buckets.values())
+    prefix = "\n" if missing else ""
+    print(
+        f"{prefix}{DOT} {len(buckets)} playlists, {total} assignments across {_songs(len(labels))}"
+    )
+    for name, video_ids in buckets.items():
+        print(f"  {len(video_ids):4d}  {name}")
 
     if not args.create and not args.update:
-        print(f"\n{ARROW} añade --create (crear) o --update (actualizar) para tocar tu cuenta")
+        print(
+            f"\n{ARROW} add --create (new playlists) or --update (add new songs) "
+            "to touch your account"
+        )
         return 0
 
     if args.dry_run:
-        print(f"{ARROW} vuelve a ejecutar sin --dry-run para aplicar los cambios")
+        print(f"\n{DOT} Dry run: no changes will be made")
+        if args.delete_old_chips:
+            print(f"  {DOT} --delete-old-chips: deletion is skipped in a dry run")
+
+    created = _load_created(C.CREATED_AI_FILE, C.LEGACY_AI_BUCKETS)
+    yt = None
+
+    if args.create:
+        if args.delete_old_chips and not args.dry_run:
+            if yt is None:
+                yt = _get_client()
+            prefixes = (C.CHIPS_PREFIX, *C.LEGACY_CHIPS_PREFIXES)
+            result = _delete_chip_playlists(yt, prefixes, args.yes)
+            if result:
+                return result
+
+        if yt is None and not args.dry_run:
+            yt = _get_client()
+        print(f"\n{DOT} Playlists ({'dry run' if args.dry_run else 'creating'})")
+        for name, video_ids in buckets.items():
+            _create_playlist_once(
+                yt,
+                created,
+                name,
+                C.AI_PREFIX + name,
+                video_ids,
+                args.dry_run,
+                args.privacy,
+                C.CREATED_AI_FILE,
+            )
+
+    if args.update:
+        if yt is None:
+            yt = _get_client()
+        print(
+            f"\n{DOT} Updating existing playlists "
+            f"({'dry run' if args.dry_run else 'adding missing songs'})"
+        )
+        for name, video_ids in buckets.items():
+            playlist_id = created.get(name)
+            if not playlist_id:
+                print(f"  {DOT} {name}: not created yet (use --create)")
+                continue
+            if args.dry_run:
+                current = set(api.get_playlist_video_ids(yt, playlist_id))
+                new = [video_id for video_id in video_ids if video_id not in current]
+                print(f"  {DOT} {name}: {len(new)} to add of {len(video_ids)}")
+            else:
+                added = api.add_missing(yt, playlist_id, video_ids)
+                print(
+                    f"  {OK} {name}: +{_songs(added)} ({len(video_ids)} total)"
+                    if added
+                    else f"  {OK} {name}: already up to date"
+                )
+
+    if args.dry_run:
+        print(f"{ARROW} re-run without --dry-run to apply the changes")
     return 0
+
+
+def cmd_quickstart(args) -> int:
+    """Authenticate, download the library and classify it in one command."""
+    print(f"{DOT} YTMSplitter quickstart")
+
+    authenticated = False
+    if C.AUTH_FILE.exists():
+        try:
+            authenticated = api.is_authenticated(api.client())
+        except Exception:  # noqa: BLE001
+            authenticated = False
+
+    if authenticated:
+        print(f"{OK} session ready")
+    else:
+        browser = args.browser or C.DEFAULT_BROWSER
+        print(f"{DOT} reading YouTube cookies from {browser}…")
+        path = auth.setup_from_browser(browser)
+        if not api.is_authenticated(api.client(path)):
+            print(
+                f"{BAD} the cookies did not authenticate.\n"
+                f"  Sign in at music.youtube.com in {browser}, then try again:\n"
+                "    ytmsplitter quickstart\n"
+                "  Or paste request headers with `ytmsplitter auth --headers FILE`."
+            )
+            return 1
+        print(f"{OK} session authenticated")
+
+    liked = api.load_json(C.LIKED_FILE) or []
+    if liked and not args.refresh:
+        print(
+            f"{OK} {_songs(len(liked))} already cached "
+            f"({_relative(C.LIKED_FILE)}); use --refresh to download again"
+        )
+    else:
+        cmd_export(args)
+
+    engine = args.engine
+    print(f"\n{DOT} Classifying with the {engine} engine")
+    if engine == "ai":
+        namespace = argparse.Namespace(
+            base_url=args.base_url,
+            api_key=args.api_key,
+            model=args.model,
+            create=args.create,
+            dry_run=args.dry_run,
+            privacy=args.privacy,
+            delete_old_chips=args.delete_old_chips,
+            yes=args.yes,
+            update=args.update,
+        )
+        result = cmd_ai(namespace)
+    else:
+        namespace = argparse.Namespace(
+            create=args.create,
+            dry_run=args.dry_run,
+            privacy=args.privacy,
+            uncovered=args.uncovered,
+        )
+        result = cmd_chips(namespace)
+
+    if result == 0 and not args.create and not args.update:
+        print("\nNext step:")
+        print(f"  ytmsplitter quickstart --engine {engine} --create")
+        if engine == "ai" and not args.update:
+            print("  # later, add new likes without duplicates:")
+            print("  ytmsplitter ai --update")
+    return result
 
 
 # --------------------------------------------------------------------------- #
 # Parser
 # --------------------------------------------------------------------------- #
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(
         prog="ytmsplitter",
-        description="Divide tu «Me gusta» de YouTube Music en playlists por estilo.",
+        description=(
+            "Split your YouTube Music Liked Music playlist into playlists that actually make sense."
+        ),
+        epilog=(
+            "examples:\n"
+            "  ytmsplitter quickstart\n"
+            "  ytmsplitter quickstart --engine ai --create\n"
+            "  ytmsplitter chips --create --dry-run\n"
+            "  ytmsplitter ai --create --privacy UNLISTED\n"
+            "  ytmsplitter ai --update\n"
+            "  ytmsplitter doctor\n\n"
+            f"documentation: {C.PROJECT_URL}"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p.add_argument("--version", action="version", version="%(prog)s 1.0.0")
-    sub = p.add_subparsers(dest="command", required=True)
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    sub = parser.add_subparsers(dest="command", required=True)
 
-    a = sub.add_parser("auth", help="configura la sesión (cookies de Firefox o cabeceras)")
-    a.add_argument("--headers", metavar="FICHERO",
-                   help="fichero con cabeceras copiadas del navegador (por defecto: Firefox)")
-    a.set_defaults(func=cmd_auth)
+    auth_parser = sub.add_parser(
+        "auth",
+        help="set up the session with browser cookies or request headers",
+        description=(
+            "Create data/auth.json. By default, cookies are read from Firefox. "
+            "Use --browser for Chrome, Chromium, Brave, Edge, Opera, Vivaldi, "
+            "LibreWolf or Safari."
+        ),
+    )
+    auth_source = auth_parser.add_mutually_exclusive_group()
+    auth_source.add_argument(
+        "--browser",
+        choices=C.BROWSERS,
+        metavar="NAME",
+        help=f"browser to read cookies from (default: {C.DEFAULT_BROWSER})",
+    )
+    auth_source.add_argument(
+        "--headers",
+        metavar="FILE",
+        help="file with request headers copied from the browser",
+    )
+    auth_parser.set_defaults(func=cmd_auth)
 
-    d = sub.add_parser("doctor", help="diagnóstico de sesión y datos")
-    d.set_defaults(func=cmd_doctor)
+    doctor_parser = sub.add_parser(
+        "doctor", help="check the session, cached data and playlist status"
+    )
+    doctor_parser.set_defaults(func=cmd_doctor)
 
-    e = sub.add_parser("export", help="descarga tu playlist «Me gusta»")
-    e.set_defaults(func=cmd_export)
+    export_parser = sub.add_parser("export", help="download your Liked Music playlist")
+    export_parser.set_defaults(func=cmd_export)
 
-    def add_create_flags(sp, with_delete=False):
-        sp.add_argument("--create", action="store_true", help="crea las playlists")
-        sp.add_argument("--dry-run", action="store_true", help="no crea nada, solo informa")
-        sp.add_argument("--privacy", default="PRIVATE",
-                        choices=["PRIVATE", "UNLISTED", "PUBLIC"])
+    def add_classification_flags(
+        command: argparse.ArgumentParser, with_delete: bool = False
+    ) -> None:
+        command.add_argument("--create", action="store_true", help="create the playlists")
+        command.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="show what would happen without changing your account",
+        )
+        command.add_argument(
+            "--privacy",
+            default="PRIVATE",
+            type=str.upper,
+            choices=PRIVACY_CHOICES,
+            help="playlist visibility (default: PRIVATE)",
+        )
         if with_delete:
-            sp.add_argument("--delete-old-chips", action="store_true",
-                            help="borra las playlists 'Me gusta · …' antes de crear")
+            command.add_argument(
+                "--delete-old-chips",
+                action="store_true",
+                help="delete existing 'Liked · …' playlists before creating AI ones",
+            )
+            command.add_argument(
+                "--yes",
+                action="store_true",
+                help="confirm destructive actions such as --delete-old-chips",
+            )
 
-    c = sub.add_parser("chips", help="clasifica con los chips nativos de YT Music")
-    add_create_flags(c)
-    c.add_argument("--uncovered", action="store_true",
-                   help="añade una playlist con las canciones sin chip")
-    c.set_defaults(func=cmd_chips)
+    chips_parser = sub.add_parser(
+        "chips",
+        help="classify with YouTube Music's native mood/genre chips (no AI key)",
+        description=(
+            "Use the mood/genre chips that YouTube Music already computes for "
+            "your Liked Music. Works without any API key."
+        ),
+    )
+    add_classification_flags(chips_parser)
+    chips_parser.add_argument(
+        "--uncovered",
+        action="store_true",
+        help="add a playlist with songs that no chip covers",
+    )
+    chips_parser.set_defaults(func=cmd_chips)
 
-    i = sub.add_parser("ai", help="clasifica con un LLM y agrupa en pocas playlists")
-    add_create_flags(i, with_delete=True)
-    i.add_argument("--model", help="modelo (por defecto AI_MODEL)")
-    i.add_argument("--base-url", help="endpoint compatible con OpenAI (por defecto AI_BASE_URL)")
-    i.add_argument("--update", action="store_true",
-                   help="añade a las playlists existentes las canciones nuevas")
-    i.add_argument("--api-key", help="clave de API (por defecto AI_API_KEY)")
-    i.set_defaults(func=cmd_ai)
+    ai_parser = sub.add_parser(
+        "ai",
+        help="classify with an LLM and group songs into a few playlists",
+        description=(
+            "Ask any OpenAI-compatible model to label each song with a "
+            "fine-grained style, then group those labels into a handful of "
+            "playlists. Configure it with AI_API_KEY, AI_MODEL and AI_BASE_URL."
+        ),
+    )
+    add_classification_flags(ai_parser, with_delete=True)
+    ai_parser.add_argument(
+        "--update",
+        action="store_true",
+        help="add only new songs to playlists that already exist",
+    )
+    ai_parser.add_argument("--model", help="model name (default: AI_MODEL)")
+    ai_parser.add_argument("--base-url", help="OpenAI-compatible endpoint (default: AI_BASE_URL)")
+    ai_parser.add_argument("--api-key", help="API key (default: AI_API_KEY)")
+    ai_parser.set_defaults(func=cmd_ai)
 
-    return p
+    quick_parser = sub.add_parser(
+        "quickstart",
+        help="one command: authenticate, download likes and classify",
+        description=(
+            "The easiest way to start. It reuses an existing session and cached "
+            "library when possible. Add --create to create the playlists."
+        ),
+    )
+    quick_parser.add_argument(
+        "--browser",
+        choices=C.BROWSERS,
+        metavar="NAME",
+        help=f"browser to read cookies from (default: {C.DEFAULT_BROWSER})",
+    )
+    quick_parser.add_argument(
+        "--engine",
+        choices=("chips", "ai"),
+        default="chips",
+        help="classification engine (default: chips, no API key needed)",
+    )
+    quick_parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="download Liked Music again even if it is already cached",
+    )
+    quick_parser.add_argument("--create", action="store_true", help="create the playlists")
+    quick_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="show what would happen without changing your account",
+    )
+    quick_parser.add_argument(
+        "--privacy",
+        default="PRIVATE",
+        type=str.upper,
+        choices=PRIVACY_CHOICES,
+        help="playlist visibility (default: PRIVATE)",
+    )
+    quick_parser.add_argument(
+        "--uncovered",
+        action="store_true",
+        help="(chips) add a playlist with songs that no chip covers",
+    )
+    quick_parser.add_argument(
+        "--update",
+        action="store_true",
+        help="(ai) add only new songs to playlists that already exist",
+    )
+    quick_parser.add_argument(
+        "--delete-old-chips",
+        action="store_true",
+        help="(ai) delete existing 'Liked · …' playlists before creating AI ones",
+    )
+    quick_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="confirm destructive actions such as --delete-old-chips",
+    )
+    quick_parser.add_argument("--model", help="(ai) model name (default: AI_MODEL)")
+    quick_parser.add_argument(
+        "--base-url", help="(ai) OpenAI-compatible endpoint (default: AI_BASE_URL)"
+    )
+    quick_parser.add_argument("--api-key", help="(ai) API key (default: AI_API_KEY)")
+    quick_parser.set_defaults(func=cmd_quickstart)
+
+    return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         result = args.func(args)
-    except api.AuthError as e:
-        print(f"{BAD} {e}", file=sys.stderr)
+    except api.AuthError as exc:
+        print(f"{BAD} {exc}", file=sys.stderr)
+        return 1
+    except (OSError, RuntimeError) as exc:
+        print(f"{BAD} {exc}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
-        print("\ninterrumpido")
+        print("\ninterrupted")
         return 130
     return 0 if isinstance(result, list) else (result or 0)
 

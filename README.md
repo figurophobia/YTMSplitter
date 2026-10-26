@@ -1,217 +1,439 @@
 <div align="center">
 
-# 🎧 YTMSplitter
+<img src="assets/banner.svg" alt="YTMSplitter — slice your YouTube Music likes into playlists that actually make sense" width="100%">
 
-**Divide tu playlist «Me gusta» de YouTube Music en playlists que de verdad se distinguen.**
+# YTMSplitter
 
-¿Tienes 700 canciones de 30 rollos distintos en un mismo cajón? YTMSplitter las
-clasifica por estilo y te monta las playlists por ti.
+**Your Liked Music playlist is one big drawer. YTMSplitter turns it into playlists that make sense.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-6f42c1.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg)](https://www.python.org/)
-[![ytmusicapi](https://img.shields.io/badge/powered%20by-ytmusicapi-ff0000.svg)](https://github.com/sigma67/ytmusicapi)
+[![CI](https://github.com/figurophobia/YTMSplitter/actions/workflows/ci.yml/badge.svg)](https://github.com/figurophobia/YTMSplitter/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-3da639.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](https://www.python.org/)
+[![Lint: Ruff](https://img.shields.io/badge/lint-ruff-261230.svg)](https://github.com/astral-sh/ruff)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 </div>
 
-```text
-                       ┌──────────────────────────┐
-   «Me gusta»  ──────► │         YTMSplitter       │ ──────►  playlists por estilo
-   722 canciones       └──────────────────────────┘
-                       chips nativos  ·  clasificación con IA
-```
+YTMSplitter reads your YouTube Music **Liked Music** playlist, classifies every
+song and creates focused playlists in your library. It ships with two engines:
 
----
-
-## ✨ Qué hace
-
-Coge toda tu playlist **Me gusta** y la abre en varias playlists temáticas. Tiene
-dos motores, y puedes usar el que prefieras (o los dos):
-
-| Motor | Cómo clasifica | Resultado |
+|  | **Chips** | **AI** |
 |---|---|---|
-| 🟥 **`chips`** | Usa los *chips* (mood/género) que **YouTube Music ya calcula** sobre tu lista | ~15 playlists tipo *Chill*, *Rock*, *Hip-hop*… |
-| 🤖 **`ai`** | Un **LLM** etiqueta cada canción con un estilo fino y luego se agrupan | **< 10 playlists** con sentido: *Videojuegos*, *Cine/series/anime*, *Chillhop & Lo-fi*… |
+| How it classifies | Uses the mood/genre chips YouTube Music already computes | Asks an LLM for a fine-grained style, then groups tags |
+| API key | Not needed | Any OpenAI-compatible provider |
+| Output | ~15 playlists such as Chill, Rock, Hip-hop | Under 10 playlists such as Video Games, Film/TV & Anime, Chillhop & Lo-fi |
+| Best for | A quick, free split | Playlists that understand context and niche genres |
 
-El motor `ai` es el interesante: distingue cosas que los géneros genéricos no,
-como **bandas sonoras de videojuegos** frente a **de cine**, o **chillhop tipo AMV**
-frente a **rap**.
+Both engines are **idempotent**: re-running them never duplicates a playlist.
+`ai --update` adds only the songs you have liked since the last run.
 
 ---
 
-## 🚀 Instalación
+## Quick start
+
+**Requirements:** Python 3.10 or newer and a browser where you are signed in to
+[YouTube Music](https://music.youtube.com).
+
+### 1. Install
+
+YTMSplitter is distributed from this repository; there is no PyPI release yet.
+The easiest option is [pipx](https://pipx.pypa.io/), which keeps the CLI in its
+own environment and puts it on your `PATH`:
 
 ```bash
-git clone https://github.com/figurophobia/YTMSplitter
+pipx install "ytmsplitter[browsers] @ git+https://github.com/figurophobia/YTMSplitter.git"
+```
+
+<details>
+<summary>Install with pip or from a clone</summary>
+
+With pip (inside a virtual environment):
+
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install "ytmsplitter[browsers] @ git+https://github.com/figurophobia/YTMSplitter.git"
+```
+
+For development:
+
+```bash
+git clone https://github.com/figurophobia/YTMSplitter.git
 cd YTMSplitter
-
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[firefox]"     # incluye lectura de cookies de Firefox
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev,browsers]"
 ```
 
-Sin el extra `firefox` también funciona: puedes pegar tus cabeceras a mano.
+</details>
+
+### 2. Split your library
+
+```bash
+# Reads cookies from Firefox, downloads Liked Music and shows the split.
+# Nothing is created yet.
+ytmsplitter quickstart
+
+# Happy with the preview? Create the playlists.
+ytmsplitter quickstart --create
+```
+
+That is the whole workflow. The default **chips** engine is free, fast and needs
+no account beyond YouTube Music.
+
+### 3. Prefer the AI engine?
+
+```bash
+export AI_API_KEY="sk-..."          # PowerShell: $env:AI_API_KEY = "sk-..."
+export AI_MODEL="gpt-4o-mini"
+ytmsplitter quickstart --engine ai --create
+```
+
+Any OpenAI-compatible endpoint works — see [AI configuration](#ai-configuration).
 
 ---
 
-## 🧭 Uso rápido
+## Features
 
-```bash
-# 1. Sesión (lee las cookies de tu Firefox, no hace falta copiar nada)
-ytmsplitter auth
+- **One-command onboarding** with `quickstart`.
+- **Two engines**, so you can start without paying for an API.
+- **Multi-browser cookie import** for Firefox, Chrome, Chromium, Brave, Edge,
+  Opera, Vivaldi, LibreWolf and Safari, plus manual request headers.
+- **Idempotent playlist creation** backed by `data/created_*.json`.
+- **Incremental updates** with `ai --update`: only new likes are added.
+- **Dry runs** everywhere: preview the result before touching your account.
+- **Configurable buckets**: change playlist names and grouping in one file,
+  without re-classifying anything.
+- **Local-first data**: exports and session files stay in `data/`, which is
+  gitignored.
+- **No browser automation, no scraping hacks**: it uses the same internal API as
+  the web player through [`ytmusicapi`](https://github.com/sigma67/ytmusicapi).
 
-# 2. Descarga tus «Me gusta»
-ytmsplitter export
+---
 
-# 3. Divide con IA y crea las playlists
-AI_API_KEY=sk-... AI_MODEL=gpt-4o-mini ytmsplitter ai --create
+## How it works
+
+```mermaid
+flowchart LR
+    A["Liked Music<br/>YouTube Music"] --> B["ytmusicapi"]
+    B --> C["data/liked.json"]
+    C --> D{"Engine"}
+    D -->|"chips"| E["Native mood/genre chips"]
+    D -->|"ai"| F["LLM labels<br/>data/ai_labels.json"]
+    E --> G["Style playlists"]
+    F --> H["Tag buckets<br/>AI_BUCKETS"]
+    H --> G
+    G --> I["Your YouTube Music library"]
 ```
 
-…o con los chips nativos de YouTube Music (sin clave de IA):
+### The chips engine
+
+YouTube Music already tags your likes with native chips such as *Chill*,
+*Focus*, *Rock* or *Video game music*. YTMSplitter fetches every chip and its
+songs, then creates one playlist per chip. It is quick and free, but the buckets
+are as broad as YouTube's own genres.
 
 ```bash
-ytmsplitter chips --create
+ytmsplitter chips                  # classify and preview
+ytmsplitter chips --create         # create the playlists
+ytmsplitter chips --create --dry-run
+ytmsplitter chips --create --uncovered   # also include songs with no chip
 ```
 
-Comprueba el estado cuando quieras:
+### The AI engine
+
+A model receives each song's **title, artists and album**, and returns one
+fine-grained style from a closed set of 18 labels. YTMSplitter then groups those
+labels into fewer than 10 playlists. This separates things generic genres miss:
+game soundtracks from film soundtracks, or chillhop from vocal hip hop.
+
+The taxonomy and the exact prompt live in [`prompts/classify.md`](prompts/classify.md)
+and [`ytmsplitter/config.py`](ytmsplitter/config.py).
+
+```bash
+export AI_API_KEY="sk-..."
+export AI_MODEL="gpt-4o-mini"
+
+ytmsplitter ai                     # label + preview
+ytmsplitter ai --create            # create the playlists
+ytmsplitter ai --create --dry-run
+ytmsplitter ai --create --privacy UNLISTED
+ytmsplitter ai --update            # add new likes to existing playlists
+```
+
+You can skip the API entirely: classify the songs yourself with the prompt and
+save the result as `data/ai_labels.json`. `ytmsplitter ai --create` will group
+that file exactly the same way.
+
+---
+
+## Usage
+
+### Authenticate
+
+```bash
+ytmsplitter auth                    # Firefox by default
+ytmsplitter auth --browser chrome
+ytmsplitter auth --browser brave
+ytmsplitter auth --headers headers.txt
+```
+
+To use request headers, open `music.youtube.com` in your browser, go to
+**DevTools → Network**, click a `browse` or `next` request, right-click it and
+choose **Copy → Copy request headers**. Save them to a file and pass it with
+`--headers`.
+
+> Browser cookies expire. If a command suddenly reports `logged_in=0`, run
+> `ytmsplitter auth` again. Chrome-based browsers should be fully closed while
+> their cookie database is read.
+
+### Check everything
 
 ```bash
 ytmsplitter doctor
 ```
 
----
+It reports the Python version, data directory, session status, cached library,
+AI labels, created playlists and AI configuration, with a suggested next step.
 
-## 📚 Comandos
+### Refresh your library
 
-| Comando | Para qué |
+```bash
+ytmsplitter export
+ytmsplitter ai --update
+```
+
+`export` downloads the current Liked Music playlist. `ai --update` compares each
+existing playlist with its ideal group and adds only the missing songs. It never
+recreates or empties a playlist.
+
+### Commands
+
+| Command | What it does |
 |---|---|
-| `ytmsplitter auth` | Configura/renueva la sesión (Firefox por defecto, o `--headers fichero`) |
-| `ytmsplitter doctor` | Diagnóstico: sesión, canciones, etiquetas y playlists creadas |
-| `ytmsplitter export` | Descarga tu playlist «Me gusta» a `data/liked.json` |
-| `ytmsplitter chips` | Clasifica con los chips nativos (añade `--create` para crear) |
-| `ytmsplitter ai` | Clasifica con IA y agrupa (añade `--create` para crear) |
+| `ytmsplitter quickstart` | Authenticate, download likes and classify in one go |
+| `ytmsplitter auth` | Create or refresh `data/auth.json` |
+| `ytmsplitter doctor` | Diagnose session, data and playlist state |
+| `ytmsplitter export` | Download Liked Music to `data/liked.json` |
+| `ytmsplitter chips` | Classify with YouTube Music's native chips |
+| `ytmsplitter ai` | Classify with an LLM and group songs into playlists |
 
-Banderas útiles de `chips` y `ai`:
+### Flags
 
-```text
---create              crea las playlists (por defecto solo informa)
---update              (ai) añade a las playlists ya creadas solo lo que falte
---dry-run             muestra qué haría, sin tocar tu cuenta
---privacy             PRIVATE (defecto) | UNLISTED | PUBLIC
---uncovered           (chips) añade una playlist con las canciones sin clasificar
---delete-old-chips    (ai) borra antes las playlists «Me gusta · …»
-```
+| Flag | Applies to | Meaning |
+|---|---|---|
+| `--create` | `quickstart`, `chips`, `ai` | Create the playlists |
+| `--dry-run` | `quickstart`, `chips`, `ai` | Show the result without changing your account |
+| `--privacy PRIVATE\|UNLISTED\|PUBLIC` | `quickstart`, `chips`, `ai` | Playlist visibility (default: `PRIVATE`) |
+| `--update` | `quickstart`, `ai` | Add only missing songs to existing playlists |
+| `--uncovered` | `quickstart`, `chips` | Add a playlist for songs that no chip covers |
+| `--delete-old-chips` | `quickstart`, `ai` | Delete `Liked · …` playlists before creating AI ones |
+| `--yes` | `quickstart`, `ai` | Confirm destructive actions |
+| `--refresh` | `quickstart` | Download Liked Music again even if cached |
+| `--browser NAME` | `quickstart`, `auth` | Browser to read cookies from |
+| `--headers FILE` | `auth` | Use request headers instead of browser cookies |
+| `--model`, `--base-url`, `--api-key` | `quickstart`, `ai` | Override AI environment variables |
 
-Todo es **idempotente**: se guarda qué playlist se creó y no se duplica al
-re-ejecutar.
-
-### Añadir canciones nuevas sin duplicar nada
-
-```bash
-ytmsplitter export          # vuelve a bajar «Me gusta» (tus 932 de ahora)
-ytmsplitter ai --update     # clasifica solo las nuevas y las añade donde toca
-```
-
-`--update` compara cada playlist con su grupo ideal y añade **solo** las que
-faltan; nunca recrea ni vacía nada.
-
----
-
-## 🤖 El motor de IA por dentro
-
-1. Un LLM recibe `título + artistas + álbum` de cada canción y devuelve **un
-   estilo fino** de una lista de 18 (ver `ytmsplitter/config.py` → `AI_TAGS`):
-   `game_ost`, `film_tv_ost`, `anime_jp`, `chillhop_lofi`, `rap_hiphop`,
-   `rock_metal`, `indie_alt`, `electronic_dance`, `phonk`, …
-2. Esas etiquetas se agrupan en **menos de 10 playlists** (`AI_BUCKETS`).
-
-Lo bueno: la agrupación es **configuración**, no código. Si quieres otras
-playlists, edita `AI_BUCKETS` y re-ejecuta — no hay que volver a clasificar:
+Every command supports `--help`:
 
 ```bash
-ytmsplitter ai --create --delete-old-chips
+ytmsplitter --help
+ytmsplitter ai --help
 ```
 
-### Cualquier LLM compatible con OpenAI
+If the `ytmsplitter` command is not on your `PATH`, the module entry point works
+too:
 
 ```bash
-export AI_BASE_URL=https://openrouter.ai/api/v1   # o Groq, Together, vLLM…
-export AI_API_KEY=...
-export AI_MODEL=anthropic/claude-3.5-sonnet
-ytmsplitter ai --create
-```
-
-¿Sin ganas de pagar una API? También puedes clasificar tú mismo (o con tu asistente
-favorito) usando `prompts/classify.md` y guardar el resultado como
-`data/ai_labels.json`; luego `ytmsplitter ai --create` lo agrupa igual.
-
----
-
-## 🔐 Sesión
-
-YTMSplitter habla con YouTube Music a través de [`ytmusicapi`](https://github.com/sigma67/ytmusicapi),
-que se autentica con **tus cookies**. Dos formas:
-
-- **Firefox** (recomendado): `ytmsplitter auth` lee las cookies de tu perfil.
-  Nota: las cookies de navegador **caducan a menudo**; si algo falla, repite este
-  comando y listo.
-- **A mano**: copia las cabeceras de una petición a `music.youtube.com`
-  (DevTools → Network → clic derecho en una petición `browse`/`next` → *Copy* →
-  *Copy request headers*), guárdalas en un fichero y usa
-  `ytmsplitter auth --headers fichero`.
-
-`data/auth.json` y las cabeceras contienen tu sesión: están en `.gitignore` y se
-guardan con permisos `600`. **No los compartas.**
-
----
-
-## 🧪 Ejemplo de salida
-
-```console
-$ ytmsplitter ai --create
-• Clasificando con IA (gpt-4o-mini en https://api.openai.com/v1)…
-  lote 1/10 (80 canciones)
-  …
-✓ etiquetadas 800/800
-
-• 9 playlists, 800 asignaciones sobre 800 canciones
-   168  Chillhop & Lo-fi
-   141  Indie & Alternativo
-   120  Rock & Metal
-    86  Pop, Soul & Jazz
-    71  Videojuegos
-    54  Rap & Hip-hop
-    48  Electrónica, ambiente y memes
-    45  En español
-    43  Cine, series y anime
-
-• Playlists (creando)
-  ✓ IA · Videojuegos: 71 canciones → PLxxxxxxxxxxxx
-  ✓ IA · Cine, series y anime: 43 canciones → PLxxxxxxxxxxxx
-  …
+python -m ytmsplitter doctor
 ```
 
 ---
 
-## 📁 Salida
+## AI configuration
+
+YTMSplitter speaks the OpenAI Chat Completions protocol. Point it at any
+compatible provider with three environment variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `AI_API_KEY` | — | Provider API key |
+| `AI_MODEL` | — | Model name, for example `gpt-4o-mini` |
+| `AI_BASE_URL` | `https://api.openai.com/v1` | API endpoint |
+| `AI_TIMEOUT` | `180` | Request timeout in seconds |
+
+Examples:
+
+```bash
+# OpenAI (default endpoint)
+export AI_API_KEY="sk-..."
+export AI_MODEL="gpt-4o-mini"
+
+# OpenRouter
+export AI_BASE_URL="https://openrouter.ai/api/v1"
+export AI_API_KEY="sk-or-..."
+export AI_MODEL="vendor/model-name"
+
+# Groq
+export AI_BASE_URL="https://api.groq.com/openai/v1"
+export AI_API_KEY="gsk_..."
+export AI_MODEL="model-name"
+
+# Ollama, running locally (no real key required)
+export AI_BASE_URL="http://localhost:11434/v1"
+export AI_API_KEY="local"
+export AI_MODEL="llama3.1"
+
+# LM Studio, running locally
+export AI_BASE_URL="http://localhost:1234/v1"
+export AI_API_KEY="local"
+export AI_MODEL="model-name"
+```
+
+Use a model with reliable instruction following and JSON output. Smaller models
+work, but may need more retries and produce more `other` labels.
+
+### Custom playlists
+
+Fine-grained labels and their grouping are configuration, not code. Edit
+`AI_BUCKETS` in [`ytmsplitter/config.py`](ytmsplitter/config.py):
+
+```python
+AI_BUCKETS = {
+    "Video Games": ["game_ost"],
+    "Film, TV & Anime": ["film_tv_ost", "anime_jp", "classical_orchestral"],
+    "Chillhop & Lo-fi": ["chillhop_lofi"],
+    # ...
+}
+```
+
+Then re-run `ytmsplitter ai --create`. Existing labels are reused; there is no
+need to call the model again. If you change the names of buckets that already
+exist, add an entry to `LEGACY_AI_BUCKETS` so `--update` can still find the old
+playlists.
+
+The chips engine's playlist names live in `PLAYLIST_NAMES`, next to
+`CHIPS_PREFIX`.
+
+---
+
+## Data and privacy
+
+Everything YTMSplitter stores lives in `data/` (configurable with
+`YTMSPLITTER_DATA`):
 
 ```text
 data/
-  liked.json            todas tus canciones «me gusta»
-  chips.json            chips detectados (mood/género)
-  by_chip/<label>.json  canciones de cada chip
-  ai_labels.json        estilo fino asignado por la IA a cada canción
-  ai_buckets.json       agrupación final (etiquetas → playlists)
-  created_*.json        qué playlists se crearon (idempotencia)
+  auth.json            YouTube session — secret, chmod 600, gitignored
+  liked.json           every song in Liked Music
+  chips.json           native chips found on the Liked Music page
+  by_chip/<label>.json songs belonging to each chip
+  uncovered_ids.json   liked songs that no chip covers
+  summary.json         coverage summary
+  ai_labels.json       fine-grained style assigned by the model
+  ai_buckets.json      final grouping (labels → playlists)
+  created_chips.json   playlist IDs created by the chips engine
+  created_ai.json      playlist IDs created by the AI engine
 ```
+
+- `data/` is gitignored, including `auth.json` and request headers.
+- `auth.json` is written with permissions `600`.
+- The chips engine sends nothing to a third party: it uses YouTube Music and
+  local files only.
+- The AI engine sends song metadata (title, artists, album) to the endpoint you
+  configure. It does not send your session, email or library history. Check your
+  provider's privacy policy before using it.
+- To keep separate accounts apart, point each one at its own directory:
+
+```bash
+YTMSPLITTER_DATA=~/.local/share/ytmsplitter/work ytmsplitter quickstart
+```
+
+### Backwards compatibility
+
+Playlists created by version 1.0.0 with Spanish names (`Me gusta · …`,
+`IA · Videojuegos`, …) keep working. YTMSplitter migrates the keys in
+`data/created_ai.json` automatically and recognises the legacy chips prefix, so
+`--update` updates the existing playlists instead of creating duplicates.
 
 ---
 
-## ⚠️ Aviso
+## Troubleshooting
 
-Proyecto **no oficial**, sin relación con Google ni YouTube. Usa la API interna
-de YouTube Music mediante `ytmusicapi`; puede dejar de funcionar si cambian sus
-endpoints. Úsalo bajo tu responsabilidad y respetando los términos de servicio
-de YouTube.
+| Symptom | Fix |
+|---|---|
+| `auth.json does not exist` | Run `ytmsplitter auth` or `ytmsplitter quickstart` |
+| `logged_in=0` / session not authenticated | Cookies expired: run `ytmsplitter auth` again |
+| `No YouTube cookies found in chrome` | Close Chrome fully; or use `--browser firefox`; or `--headers` |
+| `No module named browser_cookie3` | `pip install "ytmsplitter[browsers]"` or `pip install browser_cookie3` |
+| `no chips were found` | Refresh the session; the Liked Music page may also have changed |
+| `Missing data/liked.json` | Run `ytmsplitter export` |
+| AI returns `401` | Check `AI_API_KEY`; some providers need a different base URL |
+| AI returns `404` | Check `AI_MODEL` and `AI_BASE_URL` |
+| AI is slow or times out | Increase `AI_TIMEOUT` or use a faster model |
+| `--delete-old-chips` refuses to run | Re-run with `--yes`; use `--dry-run` first |
+| `ytmsplitter: command not found` | Activate the virtual environment, check your pipx PATH, or use `python -m ytmsplitter` |
+| Duplicate playlists appear | You renamed playlists manually; delete the duplicates or clear `data/created_*.json` and re-create |
 
-## 📄 Licencia
+Still stuck? Run `ytmsplitter doctor` and open an issue with the output, after
+removing cookies and tokens.
+
+---
+
+## FAQ
+
+**Does it modify or delete my Liked Music?**
+No. It only reads Liked Music and creates or updates other playlists.
+
+**Can I undo it?**
+Yes. Delete the generated playlists in YouTube Music. Nothing else is touched.
+
+**Does it work with YouTube instead of YouTube Music?**
+No. It targets the YouTube Music library and its internal API.
+
+**How many songs can it handle?**
+The export paginates through the whole playlist, and additions are sent in
+batches of 100. Libraries with thousands of songs work fine.
+
+**Do I need an AI key?**
+No. The chips engine is free and is the default for `quickstart`.
+
+**Are the playlists public?**
+No. They are created as `PRIVATE` unless you pass `--privacy UNLISTED` or
+`--privacy PUBLIC`.
+
+**Does the AI see my whole account?**
+No. It receives only the metadata (title, artists, album) of songs that still
+need a label.
+
+---
+
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the
+development setup and guidelines, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+for community expectations.
+
+```bash
+pip install -e ".[dev,browsers]"
+pytest
+ruff check .
+```
+
+Security issues should be reported privately; see [SECURITY.md](SECURITY.md).
+
+---
+
+## License
 
 [MIT](LICENSE) © 2026 David Sánchez Míguez
+
+## Disclaimer
+
+YTMSplitter is an unofficial project and is not affiliated with Google,
+YouTube or YouTube Music. It uses the same internal API as the web player
+through `ytmusicapi`, which may change without notice. Use it at your own risk
+and in accordance with YouTube's terms of service.
+
+The logo is an original illustration inspired by the YouTube Music play icon,
+not an official YouTube Music asset.

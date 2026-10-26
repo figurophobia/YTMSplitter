@@ -1,50 +1,51 @@
-# Prompt de clasificación por estilo
+# Prompt: style classification
 
-Este es el prompt que usa `ytmsplitter ai` (implementado en `ytmsplitter/ai.py`).
-Lo dejo aquí para que puedas clasificar a mano o con tu asistente favorito sin
-gastar una API.
+This is the prompt used by `ytmsplitter ai` (implemented in `ytmsplitter/ai.py`).
+It is kept here so you can classify songs manually or with your favourite
+assistant without spending API credits.
 
-## Sistema
+## System
 
+```text
+You classify songs by style. Use your world knowledge about the artist and the
+track, not just the text. Reply with ONLY a JSON object mapping videoId -> label.
 ```
-Clasificas canciones por estilo. Usas tu conocimiento del mundo sobre el artista
-y el tema, no solo el texto. Respondes SOLO con un objeto JSON que mapea
-videoId -> etiqueta.
-```
 
-## Taxonomía (etiqueta CERRADA, una sola por canción)
+## Taxonomy (closed set, exactly one label per song)
 
-| Etiqueta | Cubre |
+| Label | Covers |
 |---|---|
-| `game_ost` | Videojuegos: bandas sonoras, VGM, chiptune, remixes de juegos |
-| `film_tv_ost` | Bandas sonoras de cine, series o documentales |
-| `anime_jp` | Anime (OP/ED), J-pop, J-rock, city pop japonés, música japonesa |
-| `chillhop_lofi` | Lo-fi, chillhop, hip hop instrumental relajado, edits tipo AMV, wave |
-| `rap_hiphop` | Rap, hip hop, boom bap, trap, drill (con voces) |
+| `game_ost` | Video games: soundtracks, VGM, chiptune, game remixes |
+| `film_tv_ost` | Film, TV series and documentary soundtracks |
+| `anime_jp` | Anime (OP/ED), J-pop, J-rock, Japanese city pop, Japanese music |
+| `chillhop_lofi` | Lo-fi, chillhop, relaxed instrumental hip hop, AMV-style edits, wave |
+| `rap_hiphop` | Rap, hip hop, boom bap, trap, drill (with vocals) |
 | `rock_metal` | Rock, metal, punk, grunge, nu-metal, hard rock |
-| `indie_alt` | Indie, alternativo, bedroom pop, psicodelia, shoegaze, noise, math |
-| `electronic_dance` | EDM, house, techno, drum&bass, synthwave, electro |
+| `indie_alt` | Indie, alternative, bedroom pop, psychedelia, shoegaze, noise, math |
+| `electronic_dance` | EDM, house, techno, drum & bass, synthwave, electro |
 | `phonk` | Phonk, drift phonk |
 | `hardcore_experimental` | Breakcore, hardcore, industrial, noise, experimental |
 | `rnb_soul_funk` | R&B, soul, funk, disco, groove |
-| `jazz` | Jazz, jazz-funk, bossa, swing |
-| `pop` | Pop mainstream y clásicos pop |
-| `latin_spanish` | Música en español o latina (cualquier género) |
-| `ambient_relax` | Ambient, drone, new age, relax/zen/dormir |
-| `classical_orchestral` | Clásica, orquestal, piano solo |
-| `meme_internet` | Música de internet/meme/weird/shonk |
-| `other` | No encaja en ninguna |
+| `jazz` | Jazz, jazz-funk, bossa nova, swing |
+| `pop` | Mainstream pop and pop classics |
+| `latin_spanish` | Music in Spanish or Latin music (any genre) |
+| `ambient_relax` | Ambient, drone, new age, relaxation/zen/sleep |
+| `classical_orchestral` | Classical, orchestral, solo piano |
+| `meme_internet` | Internet/meme/weird/shonk music |
+| `other` | None of the above |
 
-## Reglas
+## Rules
 
-- Si es OST de un juego → `game_ost`, aunque sea electrónico.
-- Canciones de anime → `anime_jp`.
-- Instrumental de hip hop relajado → `chillhop_lofi`; con rap cantado → `rap_hiphop`.
-- Si dudas entre dos, elige la que describa mejor el **uso/vibe** de la canción.
-- Responde **solo** con el JSON `{videoId: etiqueta}`, sin markdown.
+- A game soundtrack is `game_ost`, even if it is electronic.
+- Anime songs are `anime_jp`.
+- Relaxed instrumental hip hop is `chillhop_lofi`; hip hop with rapped vocals is
+  `rap_hiphop`.
+- When in doubt, choose the label that best describes how the song is used.
+- Reply with **only** the JSON `{videoId: label}`, without markdown.
 
-## Entrada / salida
+## Input / output
 
-Entrada: líneas `videoId :: Título — Artista(s) || album: Álbum`.
-Salida: `{ "videoId": "etiqueta", ... }` → guarda el resultado como
-`data/ai_labels.json` y ejecuta `ytmsplitter ai --create`.
+Input: lines in the form `videoId :: Title — Artist(s) || album: Album`.
+
+Output: `{ "videoId": "label", ... }` → save it as `data/ai_labels.json` and run
+`ytmsplitter ai --create`.

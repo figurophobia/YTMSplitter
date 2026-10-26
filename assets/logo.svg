@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="ytmTitle ytmDesc">
+  <title id="ytmTitle">YTMSplitter logo</title>
+  <desc id="ytmDesc">A YouTube Music style red circle with a white play button, cut into pizza slices with one slice pulled out.</desc>
+  <defs>
+    <linearGradient id="slice-red" x1="140" y1="90" x2="380" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF3B30"/>
+      <stop offset=".55" stop-color="#FF0A0A"/>
+      <stop offset="1" stop-color="#D80000"/>
+    </linearGradient>
+    <linearGradient id="slice-crust" x1="120" y1="60" x2="400" y2="450" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFD982"/>
+      <stop offset=".5" stop-color="#F2B544"/>
+      <stop offset="1" stop-color="#DB9427"/>
+    </linearGradient>
+    <filter id="slice-shadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#000000" flood-opacity=".38"/>
+    </filter>
+    <clipPath id="slice0"><path d="M 256.00 256.00 L 262.25 32.09 A 224.00 224.00 0 0 1 446.79 138.63 Z"/></clipPath>
+    <clipPath id="slice1"><path d="M 256.00 256.00 L 453.04 149.46 A 224.00 224.00 0 0 1 453.04 362.54 Z"/></clipPath>
+    <clipPath id="slice2"><path d="M 256.00 256.00 L 446.79 373.37 A 224.00 224.00 0 0 1 262.25 479.91 Z"/></clipPath>
+    <clipPath id="slice3"><path d="M 256.00 256.00 L 249.75 479.91 A 224.00 224.00 0 0 1 65.21 373.37 Z"/></clipPath>
+    <clipPath id="slice4"><path d="M 256.00 256.00 L 58.96 362.54 A 224.00 224.00 0 0 1 58.96 149.46 Z"/></clipPath>
+    <clipPath id="slice5"><path d="M 256.00 256.00 L 65.21 138.63 A 224.00 224.00 0 0 1 249.75 32.09 Z"/></clipPath>
+  </defs>
+  <g>
+    <g>
+      <g clip-path="url(#slice0)">
+        <circle cx="256.0" cy="256.0" r="224.0" fill="url(#slice-crust)"/>
+        <circle cx="256.0" cy="256.0" r="202.0" fill="url(#slice-red)"/>
+        <circle cx="256.0" cy="256.0" r="202.0" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
+        <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
+      </g>
+    </g>
+    <g>
+      <g clip-path="url(#slice1)">
+        <circle cx="256.0" cy="256.0" r="224.0" fill="url(#slice-crust)"/>
+        <circle cx="256.0" cy="256.0" r="202.0" fill="url(#slice-red)"/>
+        <circle cx="256.0" cy="256.0" r="202.0" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
+        <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
+      </g>
+    </g>
+    <g transform="translate(13.00 22.52)" filter="url(#slice-shadow)">
+      <g clip-path="url(#slice2)">
+        <circle cx="256.0" cy="256.0" r="224.0" fill="url(#slice-crust)"/>
+        <circle cx="256.0" cy="256.0" r="202.0" fill="url(#slice-red)"/>
+        <circle cx="256.0" cy="256.0" r="202.0" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
+        <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
+      </g>
+    </g>
+    <g>
+      <g clip-path="url(#slice3)">
+        <circle cx="256.0" cy="256.0" r="224.0" fill="url(#slice-crust)"/>
+        <circle cx="256.0" cy="256.0" r="202.0" fill="url(#slice-red)"/>
+        <circle cx="256.0" cy="256.0" r="202.0" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
+        <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
+      </g>
+    </g>
+    <g>
+      <g clip-path="url(#slice4)">
+        <circle cx="256.0" cy="256.0" r="224.0" fill="url(#slice-crust)"/>
+        <circle cx="256.0" cy="256.0" r="202.0" fill="url(#slice-red)"/>
+        <circle cx="256.0" cy="256.0" r="202.0" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
+        <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
+      </g>
+    </g>
+    <g>
+      <g clip-path="url(#slice5)">
+        <circle cx="256.0" cy="256.0" r="224.0" fill="url(#slice-crust)"/>
+        <circle cx="256.0" cy="256.0" r="202.0" fill="url(#slice-red)"/>
+        <circle cx="256.0" cy="256.0" r="202.0" fill="none" stroke="#C9821F" stroke-opacity=".35" stroke-width="1.4"/>
+        <path d="M 214 176 L 358 256 L 214 336 Z" fill="#fff" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
+      </g>
+    </g>
+  </g>
+</svg>

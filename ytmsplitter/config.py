@@ -1,4 +1,4 @@
-"""Rutas, constantes y configuración de YTMSplitter."""
+"""Paths, constants and configuration for YTMSplitter."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 # --------------------------------------------------------------------------- #
-# Rutas
+# Paths
 # --------------------------------------------------------------------------- #
 DATA_DIR = Path(os.environ.get("YTMSPLITTER_DATA", "data")).expanduser().resolve()
 
@@ -24,24 +24,27 @@ LABELS_FILE = DATA_DIR / "ai_labels.json"
 BUCKETS_FILE = DATA_DIR / "ai_buckets.json"
 CREATED_AI_FILE = DATA_DIR / "created_ai.json"
 
-# Identificador interno de la playlist "Me gusta" en YouTube Music.
+# Internal identifier of the "Liked Music" playlist in YouTube Music.
 LIKED_BROWSE_ID = "VLLM"
 LIKED_PLAYLIST_ID = "LM"
 
-BATCH_ADD = 100  # canciones por llamada al añadir a una playlist
+BATCH_ADD = 100  # songs per request when adding to a playlist
 
 # --------------------------------------------------------------------------- #
-# Motor "chips": etiquetas nativas de YT Music -> nombre de playlist
+# "chips" engine: native YT Music chips -> playlist name
 # --------------------------------------------------------------------------- #
-CHIPS_PREFIX = "Me gusta · "
+CHIPS_PREFIX = "Liked · "
+#: Prefixes used by older versions. Kept so existing playlists are still found.
+LEGACY_CHIPS_PREFIXES = ("Me gusta · ",)
 
 PLAYLIST_NAMES: dict[str, str] = {
+    # English chip labels (the default in YouTube Music).
     "Chill": "Chill",
-    "Party": "Fiesta",
-    "Focus": "Concentración",
+    "Party": "Party",
+    "Focus": "Focus",
     "Romance": "Romance",
-    "Pump-up": "Motivación",
-    "Sleep": "Para dormir",
+    "Pump-up": "Motivation",
+    "Sleep": "Sleep",
     "Downbeat": "Downbeat",
     "Upbeat": "Upbeat",
     "Indie music": "Indie",
@@ -49,54 +52,128 @@ PLAYLIST_NAMES: dict[str, str] = {
     "Rock": "Rock",
     "Pop music": "Pop",
     "J-pop": "J-pop",
-    "Soundtrack": "Bandas sonoras",
-    "Video game music": "Videojuegos",
-    "Electronic dance music": "Electrónica",
+    "Soundtrack": "Soundtracks",
+    "Video game music": "Video Games",
+    "Electronic dance music": "Electronic",
+    # Localized labels, in case YouTube Music returns them in another language.
+    "Fiesta": "Party",
+    "Concentración": "Focus",
+    "Motivación": "Motivation",
+    "Para dormir": "Sleep",
+    "Bandas sonoras": "Soundtracks",
+    "Videojuegos": "Video Games",
+    "Electrónica": "Electronic",
+    "Indie": "Indie",
 }
 
-MOODS = {"Chill", "Party", "Focus", "Romance", "Pump-up", "Sleep", "Downbeat", "Upbeat"}
+MOODS = {
+    "Chill",
+    "Party",
+    "Focus",
+    "Romance",
+    "Pump-up",
+    "Sleep",
+    "Downbeat",
+    "Upbeat",
+    "Fiesta",
+    "Concentración",
+    "Motivación",
+    "Para dormir",
+}
 GENRES = set(PLAYLIST_NAMES) - MOODS
 
 # --------------------------------------------------------------------------- #
-# Motor "ia": estilos finos y su agrupación en pocas playlists
+# "ai" engine: fine-grained tags and how they collapse into playlists
 # --------------------------------------------------------------------------- #
-AI_PREFIX = "IA · "
+AI_PREFIX = "AI · "
 
-#: Estilos finos que debe devolver el LLM (una etiqueta por canción).
+#: Fine-grained styles the LLM must return (exactly one per song).
 AI_TAGS: list[str] = [
-    "game_ost", "film_tv_ost", "anime_jp", "chillhop_lofi", "rap_hiphop",
-    "rock_metal", "indie_alt", "electronic_dance", "phonk", "hardcore_experimental",
-    "rnb_soul_funk", "jazz", "pop", "latin_spanish", "ambient_relax",
-    "classical_orchestral", "meme_internet", "other",
+    "game_ost",
+    "film_tv_ost",
+    "anime_jp",
+    "chillhop_lofi",
+    "rap_hiphop",
+    "rock_metal",
+    "indie_alt",
+    "electronic_dance",
+    "phonk",
+    "hardcore_experimental",
+    "rnb_soul_funk",
+    "jazz",
+    "pop",
+    "latin_spanish",
+    "ambient_relax",
+    "classical_orchestral",
+    "meme_internet",
+    "other",
 ]
 
-#: Agrupación de etiquetas finas -> playlists finales (menos de 10).
-#: Cámbiala a tu gusto y vuelve a ejecutar `ytmsplitter ai --create`.
+#: Tag groups -> final playlists (fewer than 10). Edit this and re-run
+#: `ytmsplitter ai --create`; there is no need to classify the songs again.
 AI_BUCKETS: dict[str, list[str]] = {
-    "Videojuegos": ["game_ost"],
-    "Cine, series y anime": ["film_tv_ost", "anime_jp", "classical_orchestral"],
+    "Video Games": ["game_ost"],
+    "Film, TV & Anime": ["film_tv_ost", "anime_jp", "classical_orchestral"],
     "Chillhop & Lo-fi": ["chillhop_lofi"],
     "Rap & Hip-hop": ["rap_hiphop", "phonk"],
     "Rock & Metal": ["rock_metal", "hardcore_experimental"],
-    "Indie & Alternativo": ["indie_alt"],
+    "Indie & Alternative": ["indie_alt"],
     "Pop, Soul & Jazz": ["pop", "rnb_soul_funk", "jazz"],
-    "En español": ["latin_spanish"],
-    "Electrónica, ambiente y memes": ["electronic_dance", "ambient_relax",
-                                      "meme_internet", "other"],
+    "Spanish & Latin": ["latin_spanish"],
+    "Electronic, Ambient & Internet": [
+        "electronic_dance",
+        "ambient_relax",
+        "meme_internet",
+        "other",
+    ],
+}
+
+#: Old Spanish bucket names -> current names. Lets `--update` keep working with
+#: `data/created_ai.json` files generated by versions <= 1.0.0.
+LEGACY_AI_BUCKETS: dict[str, str] = {
+    "Videojuegos": "Video Games",
+    "Cine, series y anime": "Film, TV & Anime",
+    "Chillhop & Lo-fi": "Chillhop & Lo-fi",
+    "Rap & Hip-hop": "Rap & Hip-hop",
+    "Rock & Metal": "Rock & Metal",
+    "Indie & Alternativo": "Indie & Alternative",
+    "Pop, Soul & Jazz": "Pop, Soul & Jazz",
+    "En español": "Spanish & Latin",
+    "Electrónica, ambiente y memes": "Electronic, Ambient & Internet",
 }
 
 # --------------------------------------------------------------------------- #
-# IA (LLM)
+# LLM (any OpenAI-compatible endpoint)
 # --------------------------------------------------------------------------- #
 AI_BASE_URL = os.environ.get("AI_BASE_URL", "https://api.openai.com/v1")
 AI_API_KEY = os.environ.get("AI_API_KEY")
 AI_MODEL = os.environ.get("AI_MODEL")
 AI_BATCH_SIZE = 80
+AI_TIMEOUT = int(os.environ.get("AI_TIMEOUT", "180"))
 
 # --------------------------------------------------------------------------- #
-# Navegador (auth desde cookies)
+# Browser (cookie-based auth)
 # --------------------------------------------------------------------------- #
 ORIGIN = "https://music.youtube.com"
 BROWSER_UA = "Mozilla/5.0 (X11; Linux x86_64; rv:157.0) Gecko/20100101 Firefox/157.0"
 CLIENT_VERSION = "1.20261013.15.00"
 COOKIE_DOMAINS = ("youtube.com", "music.youtube.com")
+
+#: Browsers supported by browser_cookie3.
+BROWSERS = (
+    "firefox",
+    "chrome",
+    "chromium",
+    "brave",
+    "edge",
+    "opera",
+    "vivaldi",
+    "librewolf",
+    "safari",
+)
+DEFAULT_BROWSER = "firefox"
+
+# --------------------------------------------------------------------------- #
+# Misc
+# --------------------------------------------------------------------------- #
+PROJECT_URL = "https://github.com/figurophobia/YTMSplitter"

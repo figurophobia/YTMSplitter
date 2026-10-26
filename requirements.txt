@@ -1,3 +1,5 @@
+# Runtime dependencies are declared in pyproject.toml.
+# This file is only a convenience shortcut for people who prefer requirements.txt.
 ytmusicapi>=1.12.3
 requests>=2.31
 browser_cookie3>=0.19

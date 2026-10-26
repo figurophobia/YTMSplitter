@@ -1,10 +1,10 @@
-# Credenciales: NUNCA subir
+# Credentials: never commit
 auth.json
 raw_headers.txt
 headers.txt
 oauth.json
 
-# Datos generados
+# Generated data
 data/
 __pycache__/
 *.py[cod]
@@ -15,5 +15,9 @@ venv/
 build/
 dist/
 .pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 .idea/
 .vscode/
+.DS_Store

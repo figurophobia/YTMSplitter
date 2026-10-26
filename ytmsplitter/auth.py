@@ -1,7 +1,8 @@
-"""Configuración de la sesión: cabeceras pegadas o cookies de Firefox."""
+"""Session setup: pasted request headers or cookies from a local browser."""
 
 from __future__ import annotations
 
+import contextlib
 import datetime
 import hashlib
 from pathlib import Path
@@ -10,11 +11,11 @@ from . import config as C
 
 
 def setup_from_headers(raw_headers: str, auth_file: Path | None = None) -> Path:
-    """Genera ``auth.json`` a partir de cabeceras de una petición autenticada.
+    """Create ``auth.json`` from the headers of an authenticated request.
 
-    Copia en el navegador las cabeceras de una petición a ``music.youtube.com``
-    (DevTools > Network > clic derecho sobre una petición ``browse``/``next`` >
-    Copy > Copy request headers).
+    In your browser, open ``music.youtube.com``, open DevTools > Network, click
+    any ``browse``/``next`` request, right-click it and choose
+    *Copy > Copy request headers*.
     """
     from ytmusicapi import setup
 
@@ -25,66 +26,95 @@ def setup_from_headers(raw_headers: str, auth_file: Path | None = None) -> Path:
     return path
 
 
-def read_firefox_cookies() -> dict[str, str]:
-    """Lee de Firefox las cookies de YouTube. Requiere ``browser_cookie3``."""
+def read_browser_cookies(browser: str = C.DEFAULT_BROWSER) -> dict[str, str]:
+    """Read YouTube cookies from a locally installed browser.
+
+    Requires the optional ``browser_cookie3`` dependency. Chrome-based browsers
+    may need to be closed while their cookie database is read.
+    """
+    browser = browser.lower()
+    if browser not in C.BROWSERS:
+        raise RuntimeError(
+            f"Unsupported browser: {browser!r}.\nChoose one of: {', '.join(C.BROWSERS)}."
+        )
+
     try:
         import browser_cookie3 as bc
-    except ImportError as e:  # pragma: no cover
+    except ImportError as exc:  # pragma: no cover
         raise RuntimeError(
-            "Para leer las cookies de Firefox instala browser_cookie3:\n"
-            "  pip install browser_cookie3\n"
-            "(o usa `ytmsplitter auth --headers fichero`)"
-        ) from e
+            "Reading browser cookies requires browser_cookie3:\n"
+            "  pip install 'ytmsplitter[firefox]'\n"
+            "  # or: pip install browser_cookie3\n"
+            "You can also paste request headers instead:\n"
+            "  ytmsplitter auth --headers headers.txt"
+        ) from exc
 
     from http.cookiejar import CookieJar
+
+    read = getattr(bc, browser, None)
+    if read is None:
+        raise RuntimeError(f"This browser_cookie3 version does not support {browser}.")
 
     jar: CookieJar = CookieJar()
     for domain in C.COOKIE_DOMAINS:
         try:
-            for c in bc.firefox(domain_name=domain):
-                jar.set_cookie(c)
-        except Exception:  # noqa: BLE001
+            for cookie in read(domain_name=domain):
+                jar.set_cookie(cookie)
+        except Exception:  # noqa: BLE001 - a missing domain is not fatal
             continue
-    cookies = {c.name: c.value for c in jar}
+
+    cookies = {cookie.name: cookie.value for cookie in jar}
     if not cookies:
         raise RuntimeError(
-            "No he encontrado cookies de YouTube en Firefox. "
-            "¿Estás logueado en music.youtube.com en ese navegador?"
+            f"No YouTube cookies found in {browser}.\n"
+            f"Make sure you are signed in at music.youtube.com in {browser}.\n"
+            "Chrome, Chromium, Brave and Edge must be fully closed while reading "
+            "their cookie database. Alternatively, use --headers."
         )
     return cookies
 
 
+def read_firefox_cookies() -> dict[str, str]:
+    """Backwards-compatible alias for :func:`read_browser_cookies`."""
+    return read_browser_cookies("firefox")
+
+
 def build_browser_headers(cookies: dict[str, str]) -> str:
-    """Construye el bloque de cabeceras que espera ytmusicapi (auth de navegador)."""
+    """Build the header block expected by ytmusicapi's browser auth."""
     papisid = cookies.get("__Secure-3PAPISID") or cookies.get("SAPISID")
     if not papisid:
         raise RuntimeError(
-            "Faltan las cookies de sesión (__Secure-3PAPISID/SAPISID). "
-            "¿Estás logueado en music.youtube.com?"
+            "The session cookies are missing (__Secure-3PAPISID/SAPISID).\n"
+            "Are you signed in at music.youtube.com?"
         )
-    ts = str(int(datetime.datetime.now().timestamp()))
-    digest = hashlib.sha1(f"{ts} {papisid} {C.ORIGIN}".encode()).hexdigest()
-    cookie_header = "; ".join(f"{k}={v}" for k, v in cookies.items())
-    return "\n".join([
-        "Cookie: " + cookie_header,
-        "X-Goog-AuthUser: 0",
-        f"Authorization: SAPISIDHASH {ts}_{digest}_u",
-        f"X-Origin: {C.ORIGIN}",
-        f"Origin: {C.ORIGIN}",
-        f"User-Agent: {C.BROWSER_UA}",
-        "X-YouTube-Client-Name: 67",
-        f"X-YouTube-Client-Version: {C.CLIENT_VERSION}",
-    ])
+    timestamp = str(int(datetime.datetime.now().timestamp()))
+    digest = hashlib.sha1(f"{timestamp} {papisid} {C.ORIGIN}".encode()).hexdigest()
+    cookie_header = "; ".join(f"{name}={value}" for name, value in cookies.items())
+    return "\n".join(
+        [
+            "Cookie: " + cookie_header,
+            "X-Goog-AuthUser: 0",
+            f"Authorization: SAPISIDHASH {timestamp}_{digest}_u",
+            f"X-Origin: {C.ORIGIN}",
+            f"Origin: {C.ORIGIN}",
+            f"User-Agent: {C.BROWSER_UA}",
+            "X-YouTube-Client-Name: 67",
+            f"X-YouTube-Client-Version: {C.CLIENT_VERSION}",
+        ]
+    )
 
 
-def setup_from_firefox(auth_file: Path | None = None) -> Path:
-    """Regenera ``auth.json`` con las cookies actuales de Firefox."""
-    cookies = read_firefox_cookies()
+def setup_from_browser(browser: str = C.DEFAULT_BROWSER, auth_file: Path | None = None) -> Path:
+    """Regenerate ``auth.json`` from the current cookies of ``browser``."""
+    cookies = read_browser_cookies(browser)
     return setup_from_headers(build_browser_headers(cookies), auth_file)
 
 
+def setup_from_firefox(auth_file: Path | None = None) -> Path:
+    """Backwards-compatible alias for :func:`setup_from_browser`."""
+    return setup_from_browser("firefox", auth_file)
+
+
 def _chmod_600(path: Path) -> None:
-    try:
+    with contextlib.suppress(OSError):  # pragma: no cover
         path.chmod(0o600)
-    except OSError:  # pragma: no cover
-        pass

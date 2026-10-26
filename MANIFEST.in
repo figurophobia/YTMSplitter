@@ -1,0 +1,12 @@
+include LICENSE
+include README.md
+include CHANGELOG.md
+include CONTRIBUTING.md
+include CODE_OF_CONDUCT.md
+include SECURITY.md
+include pyproject.toml
+include requirements.txt
+recursive-include assets *
+recursive-include prompts *
+recursive-include tests *
+recursive-include .github *
