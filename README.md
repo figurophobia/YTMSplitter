@@ -428,6 +428,8 @@ Security issues should be reported privately; see [SECURITY.md](SECURITY.md).
 
 [MIT](LICENSE) © 2026 David Sánchez Míguez
 
+Release notes live in [CHANGELOG.md](CHANGELOG.md).
+
 ## Disclaimer
 
 YTMSplitter is an unofficial project and is not affiliated with Google,
