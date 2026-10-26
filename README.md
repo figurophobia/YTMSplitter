@@ -44,6 +44,11 @@ own environment and puts it on your `PATH`:
 pipx install "ytmsplitter[browsers] @ git+https://github.com/figurophobia/YTMSplitter.git"
 ```
 
+Prefer a fixed version? Download the wheel from the
+[latest release](https://github.com/figurophobia/YTMSplitter/releases/latest) and
+install it with `pipx install ./ytmsplitter-*.whl`, then
+`pipx inject ytmsplitter browser_cookie3`.
+
 <details>
 <summary>Install with pip or from a clone</summary>
 
