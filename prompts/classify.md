@@ -4,6 +4,20 @@ This is the prompt used by `ytmsplitter ai` (implemented in `ytmsplitter/ai.py`)
 It is kept here so you can classify songs manually or with your favourite
 assistant without spending API credits.
 
+The easiest way to use it with opencode, Claude Code or another assistant is the
+batch workflow:
+
+```bash
+ytmsplitter labels --export
+# ask your assistant to process data/label_batches/batch_*.md
+ytmsplitter labels --import
+ytmsplitter ai --create
+```
+
+Each generated batch file already contains the system prompt, the taxonomy and
+the song list. The manual path still works too: save a `{videoId: label}` JSON
+object as `data/ai_labels.json` and run `ytmsplitter ai --create`.
+
 ## System
 
 ```text

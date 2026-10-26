@@ -9,6 +9,7 @@ from pathlib import Path
 
 from . import __version__, ai, api, auth
 from . import config as C
+from . import labels as label_io
 
 OK, BAD, ARROW, DOT = "✓", "✗", "→", "•"
 PRIVACY_CHOICES = ("PRIVATE", "UNLISTED", "PUBLIC")
@@ -26,6 +27,18 @@ def _relative(path: Path) -> str:
 
 def _songs(count: int) -> str:
     return f"{count} song" if count == 1 else f"{count} songs"
+
+
+def _labels(count: int) -> str:
+    return f"{count} label" if count == 1 else f"{count} labels"
+
+
+def _files(count: int) -> str:
+    return f"{count} file" if count == 1 else f"{count} files"
+
+
+def _batches(count: int) -> str:
+    return f"{count} batch" if count == 1 else f"{count} batches"
 
 
 def _load_liked(auto_export: bool = True) -> list[dict]:
@@ -285,6 +298,10 @@ def cmd_ai(args) -> int:
                 "  Any OpenAI-compatible endpoint works, including a local one:\n"
                 "    AI_API_KEY=local AI_MODEL=llama3.1 \\\n"
                 "      AI_BASE_URL=http://localhost:11434/v1 ytmsplitter ai --create\n"
+                "  No API key? Use your own assistant (opencode, Claude Code, …):\n"
+                "    ytmsplitter labels --export\n"
+                "    # process the batch files with your assistant\n"
+                "    ytmsplitter labels --import\n"
                 "  You can also reuse an existing data/ai_labels.json."
             )
             return 2
@@ -372,6 +389,75 @@ def cmd_ai(args) -> int:
 
     if args.dry_run:
         print(f"{ARROW} re-run without --dry-run to apply the changes")
+    return 0
+
+
+def cmd_labels(args) -> int:
+    """Move labels between YTMSplitter and an external assistant."""
+    liked = _load_liked()
+    liked_ids = {track["videoId"] for track in liked}
+    labels = api.load_json(C.LABELS_FILE, {}) or {}
+    labels = {key: value for key, value in labels.items() if key in liked_ids}
+    out_dir = Path(args.dir).expanduser() if args.dir else C.LABEL_BATCH_DIR
+
+    if args.export:
+        paths, count = label_io.export_batches(liked, labels, out_dir, args.batch_size)
+        if count == 0:
+            print(f"{OK} all {_songs(len(liked))} already have labels")
+            print(f"{ARROW} run `ytmsplitter ai --create`")
+            return 0
+        print(f"{OK} {_songs(count)} in {_batches(len(paths))} → {_relative(out_dir)}")
+        print(f"{ARROW} process the batches with opencode, Claude Code or another assistant, then:")
+        print("    ytmsplitter labels --import")
+        return 0
+
+    if args.import_files is not None:
+        paths = [Path(path).expanduser() for path in args.import_files]
+        if not paths:
+            paths = sorted(out_dir.glob("*.json"))
+        if not paths:
+            print(f"{BAD} no JSON label files found in {_relative(out_dir)}")
+            print("  Export the batches first: ytmsplitter labels --export")
+            return 1
+
+        imported, errors, skipped = label_io.import_labels(paths, liked_ids, labels, args.overwrite)
+        for error in errors:
+            print(f"{BAD} {error}")
+        if imported:
+            labels.update(imported)
+            api.save_json(C.LABELS_FILE, labels)
+
+        remaining = len(liked_ids - labels.keys())
+        print(
+            f"{OK} imported {_labels(len(imported))} from {_files(len(paths))}; "
+            f"{len(labels)}/{len(liked_ids)} labelled"
+        )
+        if skipped["unknown_id"]:
+            print(f"{DOT} ignored {_songs(skipped['unknown_id'])} not in Liked Music")
+        if skipped["unknown_label"]:
+            print(f"{DOT} ignored {_labels(skipped['unknown_label'])} outside the taxonomy")
+        if skipped["already_labelled"]:
+            print(
+                f"{DOT} kept {_songs(skipped['already_labelled'])} that already had "
+                "a label (use --overwrite to replace them)"
+            )
+        if remaining:
+            print(f"{ARROW} {_songs(remaining)} still pending: run `ytmsplitter labels --export`")
+        else:
+            print(f"{ARROW} ready: run `ytmsplitter ai --create`")
+        return 1 if errors else 0
+
+    remaining = len(liked_ids - labels.keys())
+    batch_files = len(list(out_dir.glob("batch_*.md")))
+    print(f"{DOT} Label batches")
+    print(f"  liked songs:        {len(liked_ids)}")
+    print(f"  labelled:           {len(labels)}")
+    print(f"  pending:            {remaining}")
+    print(f"  batches:            {batch_files} in {_relative(out_dir)}")
+    if remaining:
+        print(f"{ARROW} run `ytmsplitter labels --export` to create the batches")
+    else:
+        print(f"{ARROW} ready: run `ytmsplitter ai --create`")
     return 0
 
 
@@ -465,6 +551,8 @@ def build_parser() -> argparse.ArgumentParser:
             "  ytmsplitter chips --create --dry-run\n"
             "  ytmsplitter ai --create --privacy UNLISTED\n"
             "  ytmsplitter ai --update\n"
+            "  ytmsplitter labels --export\n"
+            "  ytmsplitter labels --import\n"
             "  ytmsplitter doctor\n\n"
             f"documentation: {C.PROJECT_URL}"
         ),
@@ -567,6 +655,52 @@ def build_parser() -> argparse.ArgumentParser:
     ai_parser.add_argument("--base-url", help="OpenAI-compatible endpoint (default: AI_BASE_URL)")
     ai_parser.add_argument("--api-key", help="API key (default: AI_API_KEY)")
     ai_parser.set_defaults(func=cmd_ai)
+
+    labels_parser = sub.add_parser(
+        "labels",
+        help="export/import labels for an external assistant (no API key)",
+        description=(
+            "Use opencode, Claude Code or any other assistant to classify songs "
+            "without an LLM API key. --export writes self-contained prompt files, "
+            "and --import merges the JSON answers into data/ai_labels.json."
+        ),
+    )
+    labels_action = labels_parser.add_mutually_exclusive_group()
+    labels_action.add_argument(
+        "--export",
+        action="store_true",
+        help="write prompt batches for songs that still need a label",
+    )
+    labels_action.add_argument(
+        "--import",
+        dest="import_files",
+        nargs="*",
+        metavar="FILE",
+        help="import JSON label files (default: every *.json in the batch folder)",
+    )
+    labels_action.add_argument(
+        "--status",
+        action="store_true",
+        help="show label progress (default when no action is given)",
+    )
+    labels_parser.add_argument(
+        "--dir",
+        type=Path,
+        help=f"batch directory (default: {C.LABEL_BATCH_DIR})",
+    )
+    labels_parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=C.AI_BATCH_SIZE,
+        metavar="N",
+        help=f"songs per batch (default: {C.AI_BATCH_SIZE})",
+    )
+    labels_parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="replace existing labels instead of keeping them",
+    )
+    labels_parser.set_defaults(func=cmd_labels)
 
     quick_parser = sub.add_parser(
         "quickstart",

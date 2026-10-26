@@ -20,7 +20,7 @@ song and creates focused playlists in your library. It ships with two engines:
 |  | **Chips** | **AI** |
 |---|---|---|
 | How it classifies | Uses the mood/genre chips YouTube Music already computes | Asks an LLM for a fine-grained style, then groups tags |
-| API key | Not needed | Any OpenAI-compatible provider |
+| API key | Not needed | Any OpenAI-compatible provider, or no key with `labels` |
 | Output | ~15 playlists such as Chill, Rock, Hip-hop | Under 10 playlists such as Video Games, Film/TV & Anime, Chillhop & Lo-fi |
 | Best for | A quick, free split | Playlists that understand context and niche genres |
 
@@ -95,6 +95,7 @@ ytmsplitter quickstart --engine ai --create
 ```
 
 Any OpenAI-compatible endpoint works — see [AI configuration](#ai-configuration).
+No API key? [Use opencode, Claude Code or another assistant](#no-api-key-use-opencode-claude-code-or-another-assistant).
 
 ---
 
@@ -106,6 +107,8 @@ Any OpenAI-compatible endpoint works — see [AI configuration](#ai-configuratio
   Opera, Vivaldi, LibreWolf and Safari, plus manual request headers.
 - **Idempotent playlist creation** backed by `data/created_*.json`.
 - **Incremental updates** with `ai --update`: only new likes are added.
+- **Bring your own assistant**: export label batches for opencode, Claude Code
+  or any other assistant when you do not want an LLM API key.
 - **Dry runs** everywhere: preview the result before touching your account.
 - **Configurable buckets**: change playlist names and grouping in one file,
   without re-classifying anything.
@@ -166,9 +169,47 @@ ytmsplitter ai --create --privacy UNLISTED
 ytmsplitter ai --update            # add new likes to existing playlists
 ```
 
-You can skip the API entirely: classify the songs yourself with the prompt and
-save the result as `data/ai_labels.json`. `ytmsplitter ai --create` will group
-that file exactly the same way.
+### No API key? Use opencode, Claude Code or another assistant
+
+If you already use opencode, Claude Code or another assistant, you can reuse it
+instead of configuring an LLM API. YTMSplitter writes self-contained prompt
+batches, your assistant fills in the JSON answers, and YTMSplitter imports them:
+
+```bash
+# 1. Write one prompt file per group of songs that still needs a label.
+ytmsplitter labels --export
+
+# 2. Ask your assistant to process data/label_batches/batch_*.md.
+#    opencode:
+opencode run "Process every data/label_batches/batch_*.md file: write the matching .json file with only the JSON object. Do not edit anything else."
+
+#    Claude Code:
+claude -p "Process every data/label_batches/batch_*.md file: write the matching .json file with only the JSON object. Do not edit anything else." --allowedTools "Read,Write,Glob"
+
+# 3. Merge the answers and create the playlists, with no API key.
+ytmsplitter labels --import
+ytmsplitter ai --create
+```
+
+The generated `data/label_batches/README.md` contains the same instructions, and
+each batch file includes the full taxonomy so it works in a fresh session. If
+your assistant asks for permission to write the JSON files, approve it or run
+the assistant interactively. opencode uses your configured model; add
+`--model provider/model` if you want to choose a different one.
+
+Check progress whenever you want:
+
+```bash
+ytmsplitter labels --status
+```
+
+Imports never overwrite labels that already exist. If you intentionally want to
+replace them, use `ytmsplitter labels --import --overwrite`.
+
+You can also do it fully manually: classify with
+[`prompts/classify.md`](prompts/classify.md) and save the result as
+`data/ai_labels.json`. `ytmsplitter ai --create` groups that file exactly the
+same way.
 
 ---
 
@@ -222,6 +263,7 @@ recreates or empties a playlist.
 | `ytmsplitter export` | Download Liked Music to `data/liked.json` |
 | `ytmsplitter chips` | Classify with YouTube Music's native chips |
 | `ytmsplitter ai` | Classify with an LLM and group songs into playlists |
+| `ytmsplitter labels` | Export/import labels for opencode, Claude Code or another assistant |
 
 ### Flags
 
@@ -238,6 +280,12 @@ recreates or empties a playlist.
 | `--browser NAME` | `quickstart`, `auth` | Browser to read cookies from |
 | `--headers FILE` | `auth` | Use request headers instead of browser cookies |
 | `--model`, `--base-url`, `--api-key` | `quickstart`, `ai` | Override AI environment variables |
+| `--export` | `labels` | Write prompt batches for songs that still need a label |
+| `--import [FILE...]` | `labels` | Import JSON labels (default: every `*.json` in the batch folder) |
+| `--status` | `labels` | Show label progress (default when no action is given) |
+| `--batch-size N` | `labels` | Songs per prompt batch (default: 80) |
+| `--dir PATH` | `labels` | Use a different batch folder |
+| `--overwrite` | `labels` | Replace existing labels instead of keeping them |
 
 Every command supports `--help`:
 
@@ -335,8 +383,9 @@ data/
   by_chip/<label>.json songs belonging to each chip
   uncovered_ids.json   liked songs that no chip covers
   summary.json         coverage summary
-  ai_labels.json       fine-grained style assigned by the model
+  ai_labels.json       fine-grained style assigned by the model or an assistant
   ai_buckets.json      final grouping (labels → playlists)
+  label_batches/       prompt + JSON files used by the external-assistant flow
   created_chips.json   playlist IDs created by the chips engine
   created_ai.json      playlist IDs created by the AI engine
 ```
@@ -348,6 +397,9 @@ data/
 - The AI engine sends song metadata (title, artists, album) to the endpoint you
   configure. It does not send your session, email or library history. Check your
   provider's privacy policy before using it.
+- If you use `ytmsplitter labels` with opencode, Claude Code or another
+  assistant, that tool processes the same song metadata under its own privacy
+  policy.
 - To keep separate accounts apart, point each one at its own directory:
 
 ```bash
@@ -377,6 +429,8 @@ Playlists created by version 1.0.0 with Spanish names (`Me gusta · …`,
 | AI returns `404` | Check `AI_MODEL` and `AI_BASE_URL` |
 | AI is slow or times out | Increase `AI_TIMEOUT` or use a faster model |
 | `--delete-old-chips` refuses to run | Re-run with `--yes`; use `--dry-run` first |
+| `labels --import` finds no files | Run `labels --export` first, or pass `--dir` if you moved the folder |
+| `ai` still asks for a key after importing labels | Some liked songs have no label yet; run `labels --status` and export again |
 | `ytmsplitter: command not found` | Activate the virtual environment, check your pipx PATH, or use `python -m ytmsplitter` |
 | Duplicate playlists appear | You renamed playlists manually; delete the duplicates or clear `data/created_*.json` and re-create |
 
@@ -401,7 +455,9 @@ The export paginates through the whole playlist, and additions are sent in
 batches of 100. Libraries with thousands of songs work fine.
 
 **Do I need an AI key?**
-No. The chips engine is free and is the default for `quickstart`.
+No. The chips engine is free and is the default for `quickstart`. For the AI
+engine, you can either configure an OpenAI-compatible endpoint or use
+`ytmsplitter labels` with opencode, Claude Code or another assistant.
 
 **Are the playlists public?**
 No. They are created as `PRIVATE` unless you pass `--privacy UNLISTED` or

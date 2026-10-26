@@ -30,6 +30,7 @@ ytmsplitter/
   cli.py       argparse commands and terminal output
   api.py       thin ytmusicapi wrapper and JSON helpers
   ai.py        LLM prompt, batching and bucket grouping
+  labels.py    export/import batches for external assistants
   auth.py      browser cookies and request-header authentication
   config.py    paths, tags, buckets and playlist names
 tests/         network-free unit tests

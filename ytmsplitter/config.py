@@ -23,6 +23,7 @@ CREATED_CHIPS_FILE = DATA_DIR / "created_chips.json"
 LABELS_FILE = DATA_DIR / "ai_labels.json"
 BUCKETS_FILE = DATA_DIR / "ai_buckets.json"
 CREATED_AI_FILE = DATA_DIR / "created_ai.json"
+LABEL_BATCH_DIR = DATA_DIR / "label_batches"
 
 # Internal identifier of the "Liked Music" playlist in YouTube Music.
 LIKED_BROWSE_ID = "VLLM"

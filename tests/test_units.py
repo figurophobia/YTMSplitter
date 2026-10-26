@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ytmsplitter import auth
+from ytmsplitter import auth, labels
 from ytmsplitter.ai import build_buckets
 from ytmsplitter.api import first, walk
 from ytmsplitter.cli import _load_created, build_parser
@@ -91,3 +91,75 @@ def test_quickstart_defaults_to_chips_engine():
     args = build_parser().parse_args(["quickstart"])
     assert args.engine == "chips"
     assert args.func.__name__ == "cmd_quickstart"
+
+
+def _liked():
+    return [
+        {"videoId": "a", "title": "Song A", "artists": ["Artist"], "album": "Album"},
+        {"videoId": "b", "title": "Song B", "artists": ["Artist"], "album": "Album"},
+        {"videoId": "c", "title": "Song C", "artists": ["Artist"], "album": None},
+    ]
+
+
+def test_export_batches_writes_prompts_and_readme(tmp_path):
+    paths, missing = labels.export_batches(_liked(), {"a": "pop"}, tmp_path, batch_size=1)
+
+    assert missing == 2
+    assert len(paths) == 2
+    assert paths[0].name == "batch_001.md"
+    first = paths[0].read_text(encoding="utf-8")
+    assert "batch 001/002" in first
+    assert "Song B" in first
+    assert "game_ost" in first
+    assert (tmp_path / "README.md").exists()
+    second = (tmp_path / "batch_002.md").read_text(encoding="utf-8")
+    assert "Song A" not in second
+    assert "Song C" in second
+
+
+def test_export_batches_with_everything_labelled(tmp_path):
+    paths, missing = labels.export_batches(
+        _liked(), {"a": "pop", "b": "rock_metal", "c": "jazz"}, tmp_path
+    )
+    assert paths == []
+    assert missing == 0
+
+
+def test_import_labels_accepts_object_and_list(tmp_path):
+    object_file = tmp_path / "object.json"
+    object_file.write_text('{"a": "game_ost", "b": "not_a_tag", "x": "pop"}', encoding="utf-8")
+    list_file = tmp_path / "list.json"
+    list_file.write_text(
+        '```json\n[{"videoId": "c", "label": "jazz"}]\n```',
+        encoding="utf-8",
+    )
+
+    imported, errors, skipped = labels.import_labels([object_file, list_file], {"a", "b", "c"})
+
+    assert imported == {"a": "game_ost", "c": "jazz"}
+    assert errors == []
+    assert skipped == {"unknown_id": 1, "unknown_label": 1, "already_labelled": 0}
+
+
+def test_import_labels_reports_broken_files(tmp_path):
+    broken = tmp_path / "broken.json"
+    broken.write_text("not json", encoding="utf-8")
+
+    imported, errors, skipped = labels.import_labels([broken], {"a"})
+
+    assert imported == {}
+    assert len(errors) == 1
+    assert skipped == {"unknown_id": 0, "unknown_label": 0, "already_labelled": 0}
+
+
+def test_import_labels_does_not_overwrite_by_default(tmp_path):
+    path = tmp_path / "labels.json"
+    path.write_text('{"a": "pop"}', encoding="utf-8")
+
+    imported, errors, skipped = labels.import_labels([path], {"a"}, {"a": "jazz"})
+    assert imported == {}
+    assert errors == []
+    assert skipped["already_labelled"] == 1
+
+    imported, _, _ = labels.import_labels([path], {"a"}, {"a": "jazz"}, overwrite=True)
+    assert imported == {"a": "pop"}
